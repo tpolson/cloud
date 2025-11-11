@@ -270,6 +270,26 @@ class GCPVMProvisioner:
             print_error(f"Failed to start instance: {e}")
             raise
 
+    def reboot_instance(self, instance_name: str) -> None:
+        """Reboot a GCE instance.
+
+        Args:
+            instance_name: Instance name
+        """
+        try:
+            print_info(f"Rebooting instance '{instance_name}'...")
+            operation = self.instances_client.reset(
+                project=self.project_id,
+                zone=self.zone,
+                instance=instance_name
+            )
+            self._wait_for_operation(operation)
+            print_success(f"Instance '{instance_name}' rebooted")
+
+        except GoogleAPIError as e:
+            print_error(f"Failed to reboot instance: {e}")
+            raise
+
     def delete_instance(self, instance_name: str) -> None:
         """Delete a GCE instance.
 

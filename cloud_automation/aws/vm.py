@@ -233,6 +233,21 @@ class AWSVMProvisioner:
             print_error(f"Failed to start instance: {e}")
             raise
 
+    def reboot_instance(self, instance_id: str) -> None:
+        """Reboot an EC2 instance.
+
+        Args:
+            instance_id: EC2 instance ID
+        """
+        try:
+            print_info(f"Rebooting instance {instance_id}...")
+            self.ec2_client.reboot_instances(InstanceIds=[instance_id])
+            print_success(f"Instance {instance_id} rebooted")
+
+        except ClientError as e:
+            print_error(f"Failed to reboot instance: {e}")
+            raise
+
     def terminate_instance(self, instance_id: str) -> None:
         """Terminate an EC2 instance.
 

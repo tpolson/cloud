@@ -142,6 +142,45 @@ def vm_delete(instance_id: str, region: str):
         sys.exit(1)
 
 
+@vm.command('stop')
+@click.option('--instance-id', required=True, help='Instance ID to stop')
+@click.option('--region', default='us-east-1', help='AWS region')
+def vm_stop(instance_id: str, region: str):
+    """Stop an EC2 instance."""
+    try:
+        provisioner = AWSVMProvisioner(region=region)
+        provisioner.stop_instance(instance_id)
+    except Exception as e:
+        print_error(f"Failed to stop instance: {e}")
+        sys.exit(1)
+
+
+@vm.command('start')
+@click.option('--instance-id', required=True, help='Instance ID to start')
+@click.option('--region', default='us-east-1', help='AWS region')
+def vm_start(instance_id: str, region: str):
+    """Start an EC2 instance."""
+    try:
+        provisioner = AWSVMProvisioner(region=region)
+        provisioner.start_instance(instance_id)
+    except Exception as e:
+        print_error(f"Failed to start instance: {e}")
+        sys.exit(1)
+
+
+@vm.command('reboot')
+@click.option('--instance-id', required=True, help='Instance ID to reboot')
+@click.option('--region', default='us-east-1', help='AWS region')
+def vm_reboot(instance_id: str, region: str):
+    """Reboot an EC2 instance."""
+    try:
+        provisioner = AWSVMProvisioner(region=region)
+        provisioner.reboot_instance(instance_id)
+    except Exception as e:
+        print_error(f"Failed to reboot instance: {e}")
+        sys.exit(1)
+
+
 @aws.group()
 def storage():
     """AWS storage commands."""
@@ -196,6 +235,35 @@ def storage_create_volume(name: str, size: int, volume_type: str, region: str):
         provisioner.create_ebs_volume(name=name, size=size, volume_type=volume_type)
     except Exception as e:
         print_error(f"Failed to create volume: {e}")
+        sys.exit(1)
+
+
+@storage.command('attach')
+@click.option('--volume-id', required=True, help='Volume ID')
+@click.option('--instance-id', required=True, help='Instance ID')
+@click.option('--device', default='/dev/sdf', help='Device name')
+@click.option('--region', default='us-east-1', help='AWS region')
+def storage_attach(volume_id: str, instance_id: str, device: str, region: str):
+    """Attach an EBS volume to an EC2 instance."""
+    try:
+        provisioner = AWSStorageProvisioner(region=region)
+        provisioner.attach_volume(volume_id, instance_id, device)
+    except Exception as e:
+        print_error(f"Failed to attach volume: {e}")
+        sys.exit(1)
+
+
+@storage.command('detach')
+@click.option('--volume-id', required=True, help='Volume ID')
+@click.option('--force/--no-force', default=False, help='Force detachment')
+@click.option('--region', default='us-east-1', help='AWS region')
+def storage_detach(volume_id: str, force: bool, region: str):
+    """Detach an EBS volume."""
+    try:
+        provisioner = AWSStorageProvisioner(region=region)
+        provisioner.detach_volume(volume_id, force)
+    except Exception as e:
+        print_error(f"Failed to detach volume: {e}")
         sys.exit(1)
 
 
@@ -313,6 +381,48 @@ def vm_delete(name: str, project_id: str, zone: str):
         sys.exit(1)
 
 
+@vm.command('stop')
+@click.option('--name', required=True, help='Instance name to stop')
+@click.option('--project-id', required=True, help='GCP project ID')
+@click.option('--zone', default='us-central1-a', help='GCP zone')
+def vm_stop(name: str, project_id: str, zone: str):
+    """Stop a GCE instance."""
+    try:
+        provisioner = GCPVMProvisioner(project_id=project_id, zone=zone)
+        provisioner.stop_instance(name)
+    except Exception as e:
+        print_error(f"Failed to stop instance: {e}")
+        sys.exit(1)
+
+
+@vm.command('start')
+@click.option('--name', required=True, help='Instance name to start')
+@click.option('--project-id', required=True, help='GCP project ID')
+@click.option('--zone', default='us-central1-a', help='GCP zone')
+def vm_start(name: str, project_id: str, zone: str):
+    """Start a GCE instance."""
+    try:
+        provisioner = GCPVMProvisioner(project_id=project_id, zone=zone)
+        provisioner.start_instance(name)
+    except Exception as e:
+        print_error(f"Failed to start instance: {e}")
+        sys.exit(1)
+
+
+@vm.command('reboot')
+@click.option('--name', required=True, help='Instance name to reboot')
+@click.option('--project-id', required=True, help='GCP project ID')
+@click.option('--zone', default='us-central1-a', help='GCP zone')
+def vm_reboot(name: str, project_id: str, zone: str):
+    """Reboot a GCE instance."""
+    try:
+        provisioner = GCPVMProvisioner(project_id=project_id, zone=zone)
+        provisioner.reboot_instance(name)
+    except Exception as e:
+        print_error(f"Failed to reboot instance: {e}")
+        sys.exit(1)
+
+
 @gcp.group()
 def storage():
     """GCP storage commands."""
@@ -369,6 +479,36 @@ def storage_create_disk(name: str, size: int, project_id: str, zone: str, disk_t
         provisioner.create_disk(disk_name=name, size_gb=size, disk_type=disk_type)
     except Exception as e:
         print_error(f"Failed to create disk: {e}")
+        sys.exit(1)
+
+
+@storage.command('attach-disk')
+@click.option('--disk-name', required=True, help='Disk name')
+@click.option('--instance-name', required=True, help='Instance name')
+@click.option('--project-id', required=True, help='GCP project ID')
+@click.option('--zone', default='us-central1-a', help='GCP zone')
+def storage_attach_disk(disk_name: str, instance_name: str, project_id: str, zone: str):
+    """Attach a Persistent Disk to a GCE instance."""
+    try:
+        provisioner = GCPStorageProvisioner(project_id=project_id, zone=zone)
+        provisioner.attach_disk(instance_name, disk_name)
+    except Exception as e:
+        print_error(f"Failed to attach disk: {e}")
+        sys.exit(1)
+
+
+@storage.command('detach-disk')
+@click.option('--disk-name', required=True, help='Disk name')
+@click.option('--instance-name', required=True, help='Instance name')
+@click.option('--project-id', required=True, help='GCP project ID')
+@click.option('--zone', default='us-central1-a', help='GCP zone')
+def storage_detach_disk(disk_name: str, instance_name: str, project_id: str, zone: str):
+    """Detach a Persistent Disk from a GCE instance."""
+    try:
+        provisioner = GCPStorageProvisioner(project_id=project_id, zone=zone)
+        provisioner.detach_disk(instance_name, disk_name)
+    except Exception as e:
+        print_error(f"Failed to detach disk: {e}")
         sys.exit(1)
 
 

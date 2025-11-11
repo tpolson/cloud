@@ -53,6 +53,7 @@ if 'provisioning_history' not in st.session_state:
 
 # Header
 st.markdown('<h1 class="main-header">☁️ Cloud Automation Tool</h1>', unsafe_allow_html=True)
+st.info("💡 **Tip**: Use the sidebar to navigate between pages. Visit **VM Management** to control existing VMs and attach storage!")
 st.markdown("---")
 
 # Sidebar - Provider Selection
