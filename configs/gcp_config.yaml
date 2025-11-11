@@ -1,0 +1,66 @@
+# GCP Configuration Example
+# Copy this file and customize for your needs
+
+gcp:
+  project_id: my-gcp-project
+  zone: us-central1-a
+
+  # Compute Engine Instances
+  vms:
+    - name: web-server-01
+      machine_type: e2-micro
+      source_image_family: debian-11
+      source_image_project: debian-cloud
+      disk_size_gb: 10
+      external_ip: true
+      labels:
+        environment: production
+        team: devops
+        application: web
+
+    - name: app-server-01
+      machine_type: e2-small
+      source_image_family: ubuntu-2004-lts
+      source_image_project: ubuntu-os-cloud
+      disk_size_gb: 20
+      external_ip: true
+      labels:
+        environment: production
+        team: backend
+        application: api
+
+  # Storage Configuration
+  storage:
+    # Cloud Storage Buckets
+    buckets:
+      - name: my-app-data-bucket-unique
+        location: us-central1
+        storage_class: STANDARD
+        versioning: true
+        labels:
+          environment: production
+          purpose: application-data
+
+      - name: my-backup-bucket-unique
+        location: US
+        storage_class: NEARLINE
+        versioning: true
+        labels:
+          environment: production
+          purpose: backups
+
+    # Persistent Disks
+    disks:
+      - name: data-disk-01
+        size_gb: 100
+        disk_type: pd-standard
+        labels:
+          environment: production
+          purpose: database
+
+      - name: logs-disk-01
+        size_gb: 50
+        disk_type: pd-ssd
+        labels:
+          environment: production
+          purpose: logs

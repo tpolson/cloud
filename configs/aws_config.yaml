@@ -1,0 +1,59 @@
+# AWS Configuration Example
+# Copy this file and customize for your needs
+
+aws:
+  region: us-east-1
+
+  # EC2 Instances
+  vms:
+    - name: web-server-01
+      instance_type: t2.micro
+      # ami: ami-0c55b159cbfafe1f0  # Optional: specify AMI, otherwise uses latest Amazon Linux 2
+      key_name: my-key-pair  # Optional: SSH key pair name
+      tags:
+        Environment: production
+        Team: DevOps
+        Application: web
+
+    - name: app-server-01
+      instance_type: t3.small
+      tags:
+        Environment: production
+        Team: Backend
+        Application: api
+
+  # Storage Configuration
+  storage:
+    # S3 Buckets
+    s3_buckets:
+      - name: my-app-data-bucket
+        versioning: true
+        encryption: true
+        public_access: false
+        tags:
+          Environment: production
+          Purpose: application-data
+
+      - name: my-backup-bucket
+        versioning: true
+        encryption: true
+        tags:
+          Environment: production
+          Purpose: backups
+
+    # EBS Volumes
+    ebs_volumes:
+      - name: data-volume-01
+        size: 100  # GB
+        volume_type: gp3
+        # availability_zone: us-east-1a  # Optional
+        tags:
+          Environment: production
+          Purpose: database
+
+      - name: logs-volume-01
+        size: 50
+        volume_type: gp3
+        tags:
+          Environment: production
+          Purpose: logs
