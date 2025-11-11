@@ -40,11 +40,33 @@ Automated VM and storage provisioning for AWS and Google Cloud Platform with a m
 git clone <repository-url>
 cd cloud
 
-# Install in development mode
-pip install -e .
+# Create virtual environment (recommended)
+python3 -m venv .venv
 
-# Or install dependencies directly
+# Activate virtual environment
+source .venv/bin/activate  # On Linux/macOS
+# OR
+.venv\Scripts\activate     # On Windows
+
+# Upgrade pip
+pip install --upgrade pip
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Install package in editable mode
+pip install -e .
+```
+
+**Note**: Always activate the virtual environment before working with the project:
+```bash
+source .venv/bin/activate  # Linux/macOS
+.venv\Scripts\activate     # Windows
+```
+
+To deactivate when done:
+```bash
+deactivate
 ```
 
 ## Quick Start
