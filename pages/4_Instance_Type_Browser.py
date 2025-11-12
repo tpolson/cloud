@@ -1,6 +1,7 @@
 """Instance Type Browser page for filtering and selecting VM instance types."""
 
 import streamlit as st
+import pandas as pd
 from cloud_automation.instance_specs import (
     filter_aws_instances,
     filter_gcp_machines,
@@ -128,33 +129,48 @@ if provider == "AWS":
     st.subheader(f"📊 Results: {len(instances)} matching instance types")
 
     if instances:
-        # Display in a table format
+        # Prepare data for dataframe
+        df_data = []
         for instance in instances:
-            with st.container():
-                col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 2, 1])
+            network_info = instance['network']
+            if instance.get('burstable'):
+                network_info += " ⚡"
 
-                with col1:
-                    st.markdown(f"**{instance['instance_type']}**")
-                    st.caption(instance['category'])
+            df_data.append({
+                'Type': instance['instance_type'],
+                'Category': instance['category'],
+                'vCPUs': instance['vcpu'],
+                'Memory (GB)': instance['memory_gb'],
+                'Network': network_info
+            })
 
-                with col2:
-                    st.metric("vCPUs", instance['vcpu'])
+        df = pd.DataFrame(df_data)
 
-                with col3:
-                    st.metric("Memory", f"{instance['memory_gb']} GB")
+        # Display interactive dataframe with row selection
+        selection = st.dataframe(
+            df,
+            use_container_width=True,
+            hide_index=True,
+            on_select="rerun",
+            selection_mode="single-row",
+            height=400  # Compact height
+        )
 
-                with col4:
-                    st.text(f"Network: {instance['network']}")
-                    if instance.get('burstable'):
-                        st.caption("⚡ Burstable")
+        # Handle row selection
+        if selection and 'selection' in selection and 'rows' in selection['selection'] and selection['selection']['rows']:
+            selected_idx = selection['selection']['rows'][0]
+            selected_instance = instances[selected_idx]
 
-                with col5:
-                    if st.button("Select", key=f"select_aws_{instance['instance_type']}"):
-                        st.session_state.selected_aws_instance_type = instance['instance_type']
-                        st.success(f"✅ Selected: {instance['instance_type']}")
-                        st.info("Go to Home page to provision with this instance type")
-
-                st.markdown("---")
+            # Show selection confirmation
+            st.markdown("---")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.info(f"**Selected:** {selected_instance['instance_type']} - {selected_instance['vcpu']} vCPUs, {selected_instance['memory_gb']}GB")
+            with col2:
+                if st.button("✅ Confirm Selection", use_container_width=True):
+                    st.session_state.selected_aws_instance_type = selected_instance['instance_type']
+                    st.success(f"Confirmed: {selected_instance['instance_type']}")
+                    st.info("Go to Home page to provision with this instance type")
     else:
         st.info("No instance types match your filter criteria. Try adjusting the filters.")
 
@@ -233,33 +249,48 @@ else:  # GCP
     st.subheader(f"📊 Results: {len(machines)} matching machine types")
 
     if machines:
-        # Display in a table format
+        # Prepare data for dataframe
+        df_data = []
         for machine in machines:
-            with st.container():
-                col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 2, 1])
+            network_info = machine['network']
+            if machine.get('shared_cpu'):
+                network_info += " 🔄"
 
-                with col1:
-                    st.markdown(f"**{machine['machine_type']}**")
-                    st.caption(machine['category'])
+            df_data.append({
+                'Type': machine['machine_type'],
+                'Category': machine['category'],
+                'vCPUs': machine['vcpu'],
+                'Memory (GB)': machine['memory_gb'],
+                'Network': network_info
+            })
 
-                with col2:
-                    st.metric("vCPUs", machine['vcpu'])
+        df = pd.DataFrame(df_data)
 
-                with col3:
-                    st.metric("Memory", f"{machine['memory_gb']} GB")
+        # Display interactive dataframe with row selection
+        selection = st.dataframe(
+            df,
+            use_container_width=True,
+            hide_index=True,
+            on_select="rerun",
+            selection_mode="single-row",
+            height=400  # Compact height
+        )
 
-                with col4:
-                    st.text(f"Network: {machine['network']}")
-                    if machine.get('shared_cpu'):
-                        st.caption("🔄 Shared CPU")
+        # Handle row selection
+        if selection and 'selection' in selection and 'rows' in selection['selection'] and selection['selection']['rows']:
+            selected_idx = selection['selection']['rows'][0]
+            selected_machine = machines[selected_idx]
 
-                with col5:
-                    if st.button("Select", key=f"select_gcp_{machine['machine_type']}"):
-                        st.session_state.selected_gcp_machine_type = machine['machine_type']
-                        st.success(f"✅ Selected: {machine['machine_type']}")
-                        st.info("Go to Home page to provision with this machine type")
-
-                st.markdown("---")
+            # Show selection confirmation
+            st.markdown("---")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.info(f"**Selected:** {selected_machine['machine_type']} - {selected_machine['vcpu']} vCPUs, {selected_machine['memory_gb']}GB")
+            with col2:
+                if st.button("✅ Confirm Selection", use_container_width=True):
+                    st.session_state.selected_gcp_machine_type = selected_machine['machine_type']
+                    st.success(f"Confirmed: {selected_machine['machine_type']}")
+                    st.info("Go to Home page to provision with this machine type")
     else:
         st.info("No machine types match your filter criteria. Try adjusting the filters.")
 
