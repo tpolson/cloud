@@ -21,3 +21,6 @@ mypy>=1.0.0
 
 # Web UI
 streamlit>=1.28.0
+
+# Security
+cryptography>=41.0.0

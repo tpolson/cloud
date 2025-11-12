@@ -17,18 +17,20 @@ from cloud_automation.utils import (
 class GCPStorageProvisioner:
     """Provisions and manages GCP storage (Cloud Storage and Persistent Disks)."""
 
-    def __init__(self, project_id: str, zone: str = "us-central1-a"):
+    def __init__(self, project_id: str, zone: str = "us-central1-a", credentials=None):
         """Initialize GCP storage provisioner.
 
         Args:
             project_id: GCP project ID
             zone: GCP zone (for persistent disks)
+            credentials: Optional Google credentials object
         """
         self.project_id = project_id
         self.zone = zone
+        self.credentials = credentials
         try:
-            self.storage_client = storage.Client(project=project_id)
-            self.disks_client = compute_v1.DisksClient()
+            self.storage_client = storage.Client(project=project_id, credentials=credentials)
+            self.disks_client = compute_v1.DisksClient(credentials=credentials)
         except Exception as e:
             print_error(f"Failed to initialize GCP clients: {e}")
             raise
@@ -312,7 +314,7 @@ class GCPStorageProvisioner:
             disk_name: Disk name
         """
         try:
-            instances_client = compute_v1.InstancesClient()
+            instances_client = compute_v1.InstancesClient(credentials=self.credentials)
 
             # Create attached disk object
             attached_disk = compute_v1.AttachedDisk()
@@ -341,7 +343,7 @@ class GCPStorageProvisioner:
             disk_name: Disk name
         """
         try:
-            instances_client = compute_v1.InstancesClient()
+            instances_client = compute_v1.InstancesClient(credentials=self.credentials)
 
             print_info(f"Detaching disk '{disk_name}' from instance '{instance_name}'...")
             operation = instances_client.detach_disk(
@@ -368,7 +370,7 @@ class GCPStorageProvisioner:
         if operation.status == Operation.Status.DONE:
             return
 
-        operations_client = compute_v1.ZoneOperationsClient()
+        operations_client = compute_v1.ZoneOperationsClient(credentials=self.credentials)
 
         while True:
             result = operations_client.wait(

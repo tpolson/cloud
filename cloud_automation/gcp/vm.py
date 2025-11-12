@@ -17,18 +17,20 @@ from cloud_automation.utils import (
 class GCPVMProvisioner:
     """Provisions and manages GCP Compute Engine instances."""
 
-    def __init__(self, project_id: str, zone: str = "us-central1-a"):
+    def __init__(self, project_id: str, zone: str = "us-central1-a", credentials=None):
         """Initialize GCP VM provisioner.
 
         Args:
             project_id: GCP project ID
             zone: GCP zone
+            credentials: Optional Google credentials object
         """
         self.project_id = project_id
         self.zone = zone
+        self.credentials = credentials
         try:
-            self.instances_client = compute_v1.InstancesClient()
-            self.images_client = compute_v1.ImagesClient()
+            self.instances_client = compute_v1.InstancesClient(credentials=credentials)
+            self.images_client = compute_v1.ImagesClient(credentials=credentials)
         except Exception as e:
             print_error(f"Failed to initialize GCP clients: {e}")
             raise
@@ -310,6 +312,161 @@ class GCPVMProvisioner:
             print_error(f"Failed to delete instance: {e}")
             raise
 
+    def list_images(
+        self,
+        project: Optional[str] = None,
+        name_filter: Optional[str] = None,
+        max_results: int = 50
+    ) -> List[Dict[str, Any]]:
+        """List available images.
+
+        Args:
+            project: Project ID to list images from (None for current project)
+            name_filter: Filter by image name (partial match)
+            max_results: Maximum number of results
+
+        Returns:
+            List of image information dictionaries
+        """
+        try:
+            project_to_use = project or self.project_id
+            request = compute_v1.ListImagesRequest(
+                project=project_to_use
+            )
+
+            images = []
+            for img in self.images_client.list(request=request):
+                # Apply name filter if specified
+                if name_filter and name_filter.lower() not in img.name.lower():
+                    continue
+
+                images.append({
+                    'name': img.name,
+                    'description': img.description or 'N/A',
+                    'family': img.family or 'N/A',
+                    'architecture': img.architecture or 'X86_64',
+                    'creation_timestamp': img.creation_timestamp or 'N/A',
+                    'disk_size_gb': img.disk_size_gb or 0,
+                    'project': project_to_use,
+                    'self_link': img.self_link,
+                    'status': img.status or 'READY',
+                })
+
+                if len(images) >= max_results:
+                    break
+
+            # Sort by creation date (newest first)
+            images.sort(key=lambda x: x['creation_timestamp'], reverse=True)
+
+            return images
+
+        except GoogleAPIError as e:
+            print_error(f"Failed to list images: {e}")
+            raise
+
+    def search_images(
+        self,
+        search_term: str,
+        project: Optional[str] = None,
+        max_results: int = 20
+    ) -> List[Dict[str, Any]]:
+        """Search for images by name.
+
+        Args:
+            search_term: Term to search for
+            project: Project to search in (None for current project)
+            max_results: Maximum number of results
+
+        Returns:
+            List of matching image information
+        """
+        return self.list_images(
+            project=project,
+            name_filter=search_term,
+            max_results=max_results
+        )
+
+    def get_popular_images(self) -> Dict[str, List[Dict[str, str]]]:
+        """Get commonly used image families.
+
+        Returns:
+            Dictionary of image categories with image information
+        """
+        popular_projects = {
+            'Debian': {
+                'project': 'debian-cloud',
+                'families': ['debian-12', 'debian-11', 'debian-10']
+            },
+            'Ubuntu': {
+                'project': 'ubuntu-os-cloud',
+                'families': ['ubuntu-2204-lts', 'ubuntu-2004-lts', 'ubuntu-1804-lts']
+            },
+            'CentOS': {
+                'project': 'centos-cloud',
+                'families': ['centos-stream-9', 'centos-stream-8', 'centos-7']
+            },
+            'Rocky Linux': {
+                'project': 'rocky-linux-cloud',
+                'families': ['rocky-linux-9', 'rocky-linux-8']
+            },
+            'Red Hat': {
+                'project': 'rhel-cloud',
+                'families': ['rhel-9', 'rhel-8', 'rhel-7']
+            },
+            'Windows Server': {
+                'project': 'windows-cloud',
+                'families': ['windows-2022', 'windows-2019', 'windows-2016']
+            },
+        }
+
+        results = {}
+        for category, info in popular_projects.items():
+            results[category] = []
+            for family in info['families']:
+                try:
+                    image = self.images_client.get_from_family(
+                        project=info['project'],
+                        family=family
+                    )
+                    results[category].append({
+                        'name': f"{family} (latest)",
+                        'image_name': image.name,
+                        'family': family,
+                        'project': info['project'],
+                        'description': image.description or '',
+                        'creation_timestamp': image.creation_timestamp,
+                        'disk_size_gb': image.disk_size_gb,
+                    })
+                except Exception:
+                    continue
+
+        return results
+
+    def list_image_families(self, project: Optional[str] = None) -> List[str]:
+        """List available image families in a project.
+
+        Args:
+            project: Project ID (None for current project)
+
+        Returns:
+            List of image family names
+        """
+        try:
+            project_to_use = project or self.project_id
+            images = self.list_images(project=project_to_use, max_results=1000)
+
+            # Extract unique families
+            families = set()
+            for img in images:
+                if img['family'] != 'N/A':
+                    families.add(img['family'])
+
+            return sorted(list(families))
+
+        except GoogleAPIError as e:
+            print_error(f"Failed to list image families: {e}")
+            raise
+
     def _wait_for_operation(self, operation) -> None:
         """Wait for a zone operation to complete.
 
@@ -321,7 +478,7 @@ class GCPVMProvisioner:
         if operation.status == Operation.Status.DONE:
             return
 
-        operations_client = compute_v1.ZoneOperationsClient()
+        operations_client = compute_v1.ZoneOperationsClient(credentials=self.credentials)
 
         while True:
             result = operations_client.wait(

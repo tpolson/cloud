@@ -7,6 +7,14 @@ from cloud_automation.aws.vm import AWSVMProvisioner
 from cloud_automation.aws.storage import AWSStorageProvisioner
 from cloud_automation.gcp.vm import GCPVMProvisioner
 from cloud_automation.gcp.storage import GCPStorageProvisioner
+from streamlit_helpers import (
+    get_aws_credentials,
+    get_gcp_credentials,
+    get_aws_region,
+    get_gcp_project_id,
+    get_gcp_zone
+)
+from cloud_automation.credential_store import CredentialStore
 
 # Page configuration
 st.set_page_config(
@@ -15,6 +23,33 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Initialize credential store and load saved credentials
+if 'credential_store' not in st.session_state:
+    st.session_state.credential_store = CredentialStore()
+
+# Initialize session state for credentials - load from disk if available
+if 'aws_credentials' not in st.session_state:
+    stored_creds = st.session_state.credential_store.load_credentials()
+    if stored_creds and 'aws_credentials' in stored_creds:
+        st.session_state.aws_credentials = stored_creds['aws_credentials']
+    else:
+        st.session_state.aws_credentials = {
+            'access_key_id': '',
+            'secret_access_key': '',
+            'region': 'us-east-1'
+        }
+
+if 'gcp_credentials' not in st.session_state:
+    stored_creds = st.session_state.credential_store.load_credentials()
+    if stored_creds and 'gcp_credentials' in stored_creds:
+        st.session_state.gcp_credentials = stored_creds['gcp_credentials']
+    else:
+        st.session_state.gcp_credentials = {
+            'project_id': '',
+            'service_account_json': None,
+            'zone': 'us-central1-a'
+        }
 
 st.markdown('<h1 class="main-header">🖥️ Virtual Machine Management</h1>', unsafe_allow_html=True)
 st.markdown("---")
@@ -61,7 +96,8 @@ if provider == "AWS":
     st.header("🔶 AWS EC2 Instances")
 
     try:
-        provisioner = AWSVMProvisioner(region=aws_region)
+        aws_creds = get_aws_credentials()
+        provisioner = AWSVMProvisioner(region=aws_region, **aws_creds)
         instances = provisioner.list_instances()
 
         if not instances:
@@ -92,7 +128,7 @@ if provider == "AWS":
                         st.write("**Storage Management:**")
 
                         # Get available volumes
-                        storage_provisioner = AWSStorageProvisioner(region=aws_region)
+                        storage_provisioner = AWSStorageProvisioner(region=aws_region, **aws_creds)
                         volumes = storage_provisioner.list_ebs_volumes()
                         available_volumes = [v for v in volumes if v['state'] == 'available']
 
@@ -191,7 +227,12 @@ else:
         st.warning("⚠️ Please enter your GCP Project ID in the sidebar")
     else:
         try:
-            provisioner = GCPVMProvisioner(project_id=gcp_project, zone=gcp_zone)
+            gcp_creds = get_gcp_credentials()
+            provisioner = GCPVMProvisioner(
+                project_id=gcp_project,
+                zone=gcp_zone,
+                credentials=gcp_creds
+            )
             instances = provisioner.list_instances()
 
             if not instances:
@@ -223,7 +264,11 @@ else:
                             st.write("**Storage Management:**")
 
                             # Get available disks
-                            storage_provisioner = GCPStorageProvisioner(project_id=gcp_project, zone=gcp_zone)
+                            storage_provisioner = GCPStorageProvisioner(
+                                project_id=gcp_project,
+                                zone=gcp_zone,
+                                credentials=gcp_creds
+                            )
                             disks = storage_provisioner.list_disks()
                             available_disks = [d for d in disks if d['status'] == 'READY']
 

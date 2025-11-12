@@ -8,6 +8,14 @@ from cloud_automation.aws.vm import AWSVMProvisioner
 from cloud_automation.aws.storage import AWSStorageProvisioner
 from cloud_automation.gcp.vm import GCPVMProvisioner
 from cloud_automation.gcp.storage import GCPStorageProvisioner
+from streamlit_helpers import (
+    get_aws_credentials,
+    get_gcp_credentials,
+    get_aws_region,
+    get_gcp_project_id,
+    get_gcp_zone
+)
+from cloud_automation.credential_store import CredentialStore
 
 # Page configuration
 st.set_page_config(
@@ -47,13 +55,40 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Initialize credential store and load saved credentials
+if 'credential_store' not in st.session_state:
+    st.session_state.credential_store = CredentialStore()
+
+# Initialize session state for credentials - load from disk if available
+if 'aws_credentials' not in st.session_state:
+    stored_creds = st.session_state.credential_store.load_credentials()
+    if stored_creds and 'aws_credentials' in stored_creds:
+        st.session_state.aws_credentials = stored_creds['aws_credentials']
+    else:
+        st.session_state.aws_credentials = {
+            'access_key_id': '',
+            'secret_access_key': '',
+            'region': 'us-east-1'
+        }
+
+if 'gcp_credentials' not in st.session_state:
+    stored_creds = st.session_state.credential_store.load_credentials()
+    if stored_creds and 'gcp_credentials' in stored_creds:
+        st.session_state.gcp_credentials = stored_creds['gcp_credentials']
+    else:
+        st.session_state.gcp_credentials = {
+            'project_id': '',
+            'service_account_json': None,
+            'zone': 'us-central1-a'
+        }
+
 # Initialize session state
 if 'provisioning_history' not in st.session_state:
     st.session_state.provisioning_history = []
 
 # Header
 st.markdown('<h1 class="main-header">☁️ Cloud Automation Tool</h1>', unsafe_allow_html=True)
-st.info("💡 **Tip**: Use the sidebar to navigate between pages. Visit **VM Management** to control existing VMs and attach storage!")
+st.info("💡 **Quick Start**: Configure your credentials in **Settings** → Provision resources here → Manage VMs in **VM Management**")
 st.markdown("---")
 
 # Sidebar - Provider Selection
@@ -73,7 +108,7 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.info("💡 **Tip**: Make sure your cloud credentials are configured before provisioning!")
+    st.info("💡 **Tip**: Configure your cloud credentials in the **Settings** page (sidebar navigation) before provisioning!")
 
 # Main content area
 col1, col2 = st.columns([2, 1])
@@ -94,6 +129,14 @@ with col1:
         if resource_type == "Virtual Machine (VM)":
             st.subheader("EC2 Instance Configuration")
 
+            # Show selected image if available
+            if 'selected_aws_image' in st.session_state and st.session_state.selected_aws_image:
+                st.success(f"✅ Using selected AMI: `{st.session_state.selected_aws_image}`")
+                if st.button("🖼️ Change Image", key="change_aws_image"):
+                    st.info("Go to Image Browser to select a different AMI")
+            else:
+                st.info("💡 Browse and select an AMI in the **Image Browser** page, or enter one manually below")
+
             with st.form("aws_vm_form"):
                 instance_name = st.text_input(
                     "Instance Name",
@@ -110,10 +153,13 @@ with col1:
 
                 col_a, col_b = st.columns(2)
                 with col_a:
+                    # Pre-fill with selected image if available
+                    default_ami = st.session_state.get('selected_aws_image', '')
                     ami_id = st.text_input(
                         "AMI ID (Optional)",
+                        value=default_ami,
                         placeholder="ami-xxxxx",
-                        help="Leave empty to use latest Amazon Linux 2"
+                        help="Leave empty to use latest Amazon Linux 2, or select from Image Browser"
                     )
                 with col_b:
                     key_name = st.text_input(
@@ -138,7 +184,8 @@ with col1:
                     else:
                         with st.spinner("Creating EC2 instance..."):
                             try:
-                                provisioner = AWSVMProvisioner(region=aws_region)
+                                aws_creds = get_aws_credentials()
+                                provisioner = AWSVMProvisioner(region=aws_region, **aws_creds)
 
                                 tags = {}
                                 if tag_env:
@@ -196,7 +243,8 @@ with col1:
                         else:
                             with st.spinner("Creating S3 bucket..."):
                                 try:
-                                    provisioner = AWSStorageProvisioner(region=aws_region)
+                                    aws_creds = get_aws_credentials()
+                                    provisioner = AWSStorageProvisioner(region=aws_region, **aws_creds)
                                     result = provisioner.create_s3_bucket(
                                         bucket_name=bucket_name,
                                         versioning=versioning,
@@ -236,7 +284,8 @@ with col1:
                         else:
                             with st.spinner("Creating EBS volume..."):
                                 try:
-                                    provisioner = AWSStorageProvisioner(region=aws_region)
+                                    aws_creds = get_aws_credentials()
+                                    provisioner = AWSStorageProvisioner(region=aws_region, **aws_creds)
                                     result = provisioner.create_ebs_volume(
                                         name=volume_name,
                                         size=volume_size,
@@ -275,6 +324,18 @@ with col1:
         if resource_type == "Virtual Machine (VM)":
             st.subheader("Compute Engine Instance Configuration")
 
+            # Show selected image if available
+            if 'selected_gcp_image' in st.session_state and st.session_state.selected_gcp_image:
+                img_info = st.session_state.selected_gcp_image
+                if 'family' in img_info:
+                    st.success(f"✅ Using selected image: Family `{img_info['family']}` from `{img_info['project']}`")
+                else:
+                    st.success(f"✅ Using selected image: `{img_info['name']}` from `{img_info['project']}`")
+                if st.button("🖼️ Change Image", key="change_gcp_image"):
+                    st.info("Go to Image Browser to select a different image")
+            else:
+                st.info("💡 Browse and select an image in the **Image Browser** page, or choose from defaults below")
+
             with st.form("gcp_vm_form"):
                 instance_name = st.text_input(
                     "Instance Name",
@@ -291,11 +352,21 @@ with col1:
 
                 col_gc1, col_gc2 = st.columns(2)
                 with col_gc1:
-                    image_family = st.selectbox(
-                        "Image Family",
-                        ["debian-11", "ubuntu-2004-lts", "centos-7", "rocky-linux-8"],
-                        help="Operating system"
-                    )
+                    # If image selected from browser, show it as info only
+                    if 'selected_gcp_image' in st.session_state and st.session_state.selected_gcp_image:
+                        selected_img = st.session_state.selected_gcp_image
+                        if 'family' in selected_img:
+                            st.info(f"Using family: {selected_img['family']}")
+                            image_family = selected_img['family']
+                        else:
+                            st.info(f"Using image: {selected_img['name']}")
+                            image_family = None
+                    else:
+                        image_family = st.selectbox(
+                            "Image Family",
+                            ["debian-11", "ubuntu-2004-lts", "centos-7", "rocky-linux-8"],
+                            help="Operating system"
+                        )
                 with col_gc2:
                     disk_size = st.number_input("Boot Disk Size (GB)", min_value=10, max_value=500, value=10)
 
@@ -319,7 +390,12 @@ with col1:
                     else:
                         with st.spinner("Creating GCE instance..."):
                             try:
-                                provisioner = GCPVMProvisioner(project_id=gcp_project, zone=gcp_zone)
+                                gcp_creds = get_gcp_credentials()
+                                provisioner = GCPVMProvisioner(
+                                    project_id=gcp_project,
+                                    zone=gcp_zone,
+                                    credentials=gcp_creds
+                                )
 
                                 labels = {}
                                 if label_env:
@@ -327,14 +403,41 @@ with col1:
                                 if label_app:
                                     labels["application"] = label_app
 
-                                result = provisioner.create_instance(
-                                    name=instance_name,
-                                    machine_type=machine_type,
-                                    source_image_family=image_family,
-                                    disk_size_gb=disk_size,
-                                    external_ip=external_ip,
-                                    labels=labels if labels else None
-                                )
+                                # Determine image source
+                                if 'selected_gcp_image' in st.session_state and st.session_state.selected_gcp_image:
+                                    selected_img = st.session_state.selected_gcp_image
+                                    if 'family' in selected_img:
+                                        # Use image family
+                                        result = provisioner.create_instance(
+                                            name=instance_name,
+                                            machine_type=machine_type,
+                                            source_image_family=selected_img['family'],
+                                            source_image_project=selected_img['project'],
+                                            disk_size_gb=disk_size,
+                                            external_ip=external_ip,
+                                            labels=labels if labels else None
+                                        )
+                                    else:
+                                        # Use specific image name
+                                        result = provisioner.create_instance(
+                                            name=instance_name,
+                                            machine_type=machine_type,
+                                            source_image_family=selected_img['name'],
+                                            source_image_project=selected_img['project'],
+                                            disk_size_gb=disk_size,
+                                            external_ip=external_ip,
+                                            labels=labels if labels else None
+                                        )
+                                else:
+                                    # Use default image family
+                                    result = provisioner.create_instance(
+                                        name=instance_name,
+                                        machine_type=machine_type,
+                                        source_image_family=image_family if image_family else "debian-11",
+                                        disk_size_gb=disk_size,
+                                        external_ip=external_ip,
+                                        labels=labels if labels else None
+                                    )
 
                                 st.success(f"✅ Successfully created GCE instance: {instance_name}")
                                 if result.get('external_ip'):
@@ -387,7 +490,12 @@ with col1:
                         else:
                             with st.spinner("Creating Cloud Storage bucket..."):
                                 try:
-                                    provisioner = GCPStorageProvisioner(project_id=gcp_project, zone=gcp_zone)
+                                    gcp_creds = get_gcp_credentials()
+                                    provisioner = GCPStorageProvisioner(
+                                        project_id=gcp_project,
+                                        zone=gcp_zone,
+                                        credentials=gcp_creds
+                                    )
                                     result = provisioner.create_bucket(
                                         bucket_name=bucket_name,
                                         location=location,
@@ -430,7 +538,12 @@ with col1:
                         else:
                             with st.spinner("Creating Persistent Disk..."):
                                 try:
-                                    provisioner = GCPStorageProvisioner(project_id=gcp_project, zone=gcp_zone)
+                                    gcp_creds = get_gcp_credentials()
+                                    provisioner = GCPStorageProvisioner(
+                                        project_id=gcp_project,
+                                        zone=gcp_zone,
+                                        credentials=gcp_creds
+                                    )
                                     result = provisioner.create_disk(
                                         disk_name=disk_name,
                                         size_gb=disk_size_gcp,
@@ -467,7 +580,7 @@ st.markdown(
     """
     <div style='text-align: center; color: #666;'>
         <p>Cloud Automation Tool | Built with ❤️ using Streamlit</p>
-        <p>Make sure your cloud credentials are properly configured before provisioning.</p>
+        <p>Configure your cloud credentials in the Settings page or use environment credentials.</p>
     </div>
     """,
     unsafe_allow_html=True

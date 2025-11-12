@@ -17,9 +17,23 @@ Automated VM and storage provisioning for AWS and Google Cloud Platform with a m
 
 ### 🎨 Modern Web Interface
 - **Streamlit-based UI**: Clean, responsive interface for all operations
-- **Multi-page design**: Separate pages for provisioning and VM management
+- **Multi-page design**: Separate pages for provisioning, VM management, and settings
 - **Real-time updates**: Refresh to see current resource states
 - **History tracking**: View recent provisioning operations
+
+### 🔐 Credential Management
+- **Encrypted storage**: Securely save credentials to disk with encryption
+- **Auto-load**: Credentials automatically loaded on app startup
+- **Multiple methods**: UI, environment variables, or CLI configuration
+- **Test connections**: Verify credentials before provisioning
+- See [CREDENTIALS.md](CREDENTIALS.md) for detailed guide
+
+### 🖼️ Image Browser (NEW)
+- **Browse images**: Search and explore AWS AMIs and GCP images
+- **Popular images**: Quick access to commonly used OS images
+- **Custom images**: Browse your own private AMIs/images
+- **Search & filter**: Find specific images by name, owner, or project
+- **One-click select**: Selected images automatically used when provisioning VMs
 
 ### 🔧 Powerful CLI
 - **Comprehensive commands**: Full control via command-line interface
@@ -84,6 +98,8 @@ Navigate to http://localhost:8501 in your browser.
 **Pages:**
 - **Home**: Provision new VMs and storage resources
 - **VM Management**: Control existing VMs, attach storage, SSH access
+- **Settings**: Configure cloud provider credentials with optional encrypted storage
+- **Image Browser**: Search and select VM images (AMIs/images) for provisioning
 
 ### Command Line Interface
 
@@ -103,11 +119,13 @@ cloud-provision gcp --help
 ### Provisioning Resources
 
 #### AWS EC2 Instance (Web UI)
-1. Select "AWS" provider
-2. Choose region (e.g., us-east-1)
-3. Select "Virtual Machine (VM)"
-4. Configure instance details
-5. Click "🚀 Provision EC2 Instance"
+1. **(Optional)** Go to **Image Browser** → Browse AWS AMIs → Select an image
+2. Go to **Home** page
+3. Select "AWS" provider
+4. Choose region (e.g., us-east-1)
+5. Select "Virtual Machine (VM)"
+6. Configure instance details (selected image will be pre-filled)
+7. Click "🚀 Provision EC2 Instance"
 
 #### AWS EC2 Instance (CLI)
 ```bash
@@ -200,6 +218,7 @@ cloud-provision aws provision --config config.yaml --region us-east-1
 
 ## Documentation
 
+- [Credential Management Guide](CREDENTIALS.md) - Complete guide to credential storage and security
 - [VM Management Guide](docs/VM_MANAGEMENT.md) - Comprehensive VM control and storage attachment guide
 - [CLAUDE.md](CLAUDE.md) - Development guidance for Claude Code
 
@@ -208,31 +227,46 @@ cloud-provision aws provision --config config.yaml --region us-east-1
 ```
 cloud_automation/
 ├── aws/
-│   ├── vm.py           # EC2 instance management
-│   └── storage.py      # S3 and EBS operations
+│   ├── vm.py                # EC2 instance management
+│   └── storage.py           # S3 and EBS operations
 ├── gcp/
-│   ├── vm.py           # Compute Engine management
-│   └── storage.py      # Cloud Storage and Persistent Disks
-├── config.py           # Configuration management
-├── utils.py            # Shared utilities
-└── cli.py              # Command-line interface
+│   ├── vm.py                # Compute Engine management
+│   └── storage.py           # Cloud Storage and Persistent Disks
+├── credential_store.py      # Encrypted credential storage
+├── config.py                # Configuration management
+├── utils.py                 # Shared utilities
+└── cli.py                   # Command-line interface
 
-app.py                  # Main Streamlit UI (provisioning)
+app.py                       # Main Streamlit UI (provisioning)
+streamlit_helpers.py         # Credential helper functions
 pages/
-└── 1_VM_Management.py  # VM management interface
+├── 1_VM_Management.py       # VM management interface
+├── 2_Settings.py            # Credential configuration UI
+└── 3_Image_Browser.py       # Image browsing and selection
 ```
 
 ## Cloud Provider Setup
 
 ### AWS Configuration
 
-Ensure AWS credentials are configured:
+**Option 1: Web UI (Recommended)**
+
+1. Navigate to **Settings** page in the app
+2. Enter AWS Access Key ID and Secret Access Key
+3. Select default region
+4. Enable "Remember credentials" for automatic loading
+5. Click "Save AWS Credentials"
+
+**Option 2: AWS CLI**
 
 ```bash
 # Configure AWS CLI
 aws configure
+```
 
-# Or set environment variables
+**Option 3: Environment Variables**
+
+```bash
 export AWS_ACCESS_KEY_ID=your_access_key
 export AWS_SECRET_ACCESS_KEY=your_secret_key
 export AWS_DEFAULT_REGION=us-east-1
@@ -244,7 +278,16 @@ Required IAM permissions:
 
 ### GCP Configuration
 
-Ensure Google Cloud SDK is configured:
+**Option 1: Web UI (Recommended)**
+
+1. Navigate to **Settings** page in the app
+2. Enter GCP Project ID
+3. Upload service account JSON key or paste content
+4. Select default zone
+5. Enable "Remember credentials" for automatic loading
+6. Click "Save GCP Credentials"
+
+**Option 2: gcloud CLI**
 
 ```bash
 # Initialize gcloud
@@ -255,6 +298,13 @@ gcloud config set project YOUR_PROJECT_ID
 
 # Authenticate
 gcloud auth application-default login
+```
+
+**Option 3: Environment Variables**
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
+export GOOGLE_CLOUD_PROJECT="your-project-id"
 ```
 
 Required IAM roles:
@@ -344,7 +394,27 @@ For issues and questions:
 
 ## Changelog
 
-### v0.2.0 (Current)
+### v0.4.0 (Current)
+- 🖼️ **NEW**: Image Browser for searching and selecting VM images
+- 🖼️ Browse AWS AMIs (Amazon, Ubuntu, Red Hat, Windows) and GCP images (Debian, Ubuntu, CentOS, etc.)
+- 🖼️ Search and filter images by name, owner, project
+- 🖼️ Quick access to popular pre-configured images
+- 🖼️ View custom/private images in your account
+- 🖼️ One-click image selection for VM provisioning
+- 🖼️ Automatic integration with provisioning workflow
+- ⚡ Backend methods for listing and searching images
+
+### v0.3.0
+- 🔐 Credential Management with encrypted storage
+- 🔐 Settings page for configuring AWS and GCP credentials
+- 🔐 Optional persistent storage with Fernet encryption
+- 🔐 Machine-specific encryption keys (username + hostname)
+- 🔐 Auto-load credentials on app startup
+- 🔐 Test connection functionality for credential validation
+- 📝 Comprehensive credential management documentation
+- ⚙️ Support for multiple credential sources (UI, environment, CLI)
+
+### v0.2.0
 - ✨ Added VM management interface with start/stop/reboot
 - ✨ Implemented storage attachment (EBS and Persistent Disks)
 - ✨ Added SSH connection commands in UI

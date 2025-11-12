@@ -263,6 +263,137 @@ class AWSVMProvisioner:
             print_error(f"Failed to terminate instance: {e}")
             raise
 
+    def list_images(
+        self,
+        owners: Optional[List[str]] = None,
+        name_filter: Optional[str] = None,
+        max_results: int = 50
+    ) -> List[Dict[str, Any]]:
+        """List available AMIs.
+
+        Args:
+            owners: List of owner IDs (e.g., ['self', 'amazon', '099720109477'])
+                   'self' for your own images, 'amazon' for AWS official
+            name_filter: Filter by image name (wildcard supported)
+            max_results: Maximum number of results to return
+
+        Returns:
+            List of image information dictionaries
+        """
+        try:
+            filters = [{'Name': 'state', 'Values': ['available']}]
+
+            if name_filter:
+                filters.append({'Name': 'name', 'Values': [f'*{name_filter}*']})
+
+            # Default to common owners if none specified
+            if owners is None:
+                owners = ['amazon', 'self']
+
+            response = self.ec2_client.describe_images(
+                Owners=owners,
+                Filters=filters,
+            )
+
+            images = []
+            for img in response.get('Images', [])[:max_results]:
+                images.append({
+                    'image_id': img['ImageId'],
+                    'name': img.get('Name', 'N/A'),
+                    'description': img.get('Description', 'N/A'),
+                    'architecture': img.get('Architecture', 'N/A'),
+                    'platform': img.get('Platform', 'Linux'),
+                    'creation_date': img.get('CreationDate', 'N/A'),
+                    'owner_id': img.get('OwnerId', 'N/A'),
+                    'public': img.get('Public', False),
+                    'root_device_type': img.get('RootDeviceType', 'N/A'),
+                })
+
+            # Sort by creation date (newest first)
+            images.sort(key=lambda x: x['creation_date'], reverse=True)
+
+            return images
+
+        except ClientError as e:
+            print_error(f"Failed to list images: {e}")
+            raise
+
+    def search_images(
+        self,
+        search_term: str,
+        owner: str = 'amazon',
+        max_results: int = 20
+    ) -> List[Dict[str, Any]]:
+        """Search for AMIs by name or description.
+
+        Args:
+            search_term: Term to search for
+            owner: Owner filter ('amazon', 'self', 'aws-marketplace', etc.)
+            max_results: Maximum number of results
+
+        Returns:
+            List of matching image information
+        """
+        return self.list_images(
+            owners=[owner],
+            name_filter=search_term,
+            max_results=max_results
+        )
+
+    def get_popular_images(self) -> Dict[str, List[Dict[str, str]]]:
+        """Get commonly used AMI categories.
+
+        Returns:
+            Dictionary of image categories with AMI information
+        """
+        popular_images = {
+            'Amazon Linux': [
+                {'name': 'Amazon Linux 2023', 'filter': 'al2023-ami-*-x86_64'},
+                {'name': 'Amazon Linux 2', 'filter': 'amzn2-ami-hvm-*-x86_64-gp2'},
+            ],
+            'Ubuntu': [
+                {'name': 'Ubuntu 22.04 LTS', 'filter': 'ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*'},
+                {'name': 'Ubuntu 20.04 LTS', 'filter': 'ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*'},
+            ],
+            'Red Hat': [
+                {'name': 'RHEL 9', 'filter': 'RHEL-9.*_HVM-*-x86_64-*'},
+                {'name': 'RHEL 8', 'filter': 'RHEL-8.*_HVM-*-x86_64-*'},
+            ],
+            'Windows': [
+                {'name': 'Windows Server 2022', 'filter': 'Windows_Server-2022-English-Full-Base-*'},
+                {'name': 'Windows Server 2019', 'filter': 'Windows_Server-2019-English-Full-Base-*'},
+            ],
+        }
+
+        results = {}
+        for category, image_list in popular_images.items():
+            results[category] = []
+            for image_info in image_list:
+                try:
+                    response = self.ec2_client.describe_images(
+                        Owners=['amazon', '099720109477'],  # Amazon and Canonical (Ubuntu)
+                        Filters=[
+                            {'Name': 'name', 'Values': [image_info['filter']]},
+                            {'Name': 'state', 'Values': ['available']},
+                        ],
+                    )
+
+                    if response['Images']:
+                        # Get the latest image
+                        latest = sorted(response['Images'],
+                                      key=lambda x: x['CreationDate'],
+                                      reverse=True)[0]
+                        results[category].append({
+                            'name': image_info['name'],
+                            'image_id': latest['ImageId'],
+                            'description': latest.get('Description', ''),
+                            'creation_date': latest['CreationDate'],
+                        })
+                except Exception:
+                    continue
+
+        return results
+
     def _get_latest_amazon_linux_ami(self) -> str:
         """Get the latest Amazon Linux 2 AMI ID.
 
