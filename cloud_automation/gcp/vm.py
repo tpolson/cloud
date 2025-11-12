@@ -12,6 +12,7 @@ from cloud_automation.utils import (
     format_labels,
     validate_name,
 )
+from cloud_automation.validators import GCPValidator, CommonValidator, ValidationError
 
 
 class GCPVMProvisioner:
@@ -25,6 +26,10 @@ class GCPVMProvisioner:
             zone: GCP zone
             credentials: Optional Google credentials object
         """
+        # Validate inputs
+        GCPValidator.validate_project_id(project_id)
+        GCPValidator.validate_zone(zone)
+
         self.project_id = project_id
         self.zone = zone
         self.credentials = credentials
@@ -70,7 +75,13 @@ class GCPVMProvisioner:
             GoogleAPIError: If GCP API call fails
         """
         try:
-            validate_name(name, "gcp")
+            # Validate inputs
+            GCPValidator.validate_instance_name(name)
+            GCPValidator.validate_machine_type(machine_type)
+            CommonValidator.validate_disk_size(disk_size_gb, min_size=10, max_size=65536)
+
+            if labels:
+                labels = CommonValidator.validate_tags_labels(labels)
 
             # Get the latest image from the family
             image = self.images_client.get_from_family(

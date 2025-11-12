@@ -12,6 +12,7 @@ from cloud_automation.utils import (
     format_tags,
     validate_name,
 )
+from cloud_automation.validators import AWSValidator, CommonValidator, ValidationError
 
 
 class AWSVMProvisioner:
@@ -65,16 +66,27 @@ class AWSVMProvisioner:
             ClientError: If AWS API call fails
         """
         try:
+            # Validate inputs
             validate_name(name, "aws")
+            AWSValidator.validate_instance_type(instance_type)
 
-            # Get latest Amazon Linux 2 AMI if not specified
-            if not ami:
+            if ami:
+                AWSValidator.validate_ami_id(ami)
+            else:
+                # Get latest Amazon Linux 2 AMI if not specified
                 ami = self._get_latest_amazon_linux_ami()
                 print_info(f"Using AMI: {ami}")
 
-            # Prepare tags
+            # Validate security group IDs if provided
+            if security_group_ids:
+                for sg_id in security_group_ids:
+                    if not sg_id.startswith('sg-'):
+                        raise ValidationError(f"Invalid security group ID format: {sg_id}")
+
+            # Prepare and validate tags
             instance_tags = {"Name": name}
             if tags:
+                tags = CommonValidator.validate_tags_labels(tags)
                 instance_tags.update(tags)
 
             tag_specifications = [
