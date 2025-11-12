@@ -28,12 +28,21 @@ Automated VM and storage provisioning for AWS and Google Cloud Platform with a m
 - **Test connections**: Verify credentials before provisioning
 - See [CREDENTIALS.md](CREDENTIALS.md) for detailed guide
 
-### 🖼️ Image Browser (NEW)
+### 🖼️ Image Browser
 - **Browse images**: Search and explore AWS AMIs and GCP images
 - **Popular images**: Quick access to commonly used OS images
 - **Custom images**: Browse your own private AMIs/images
 - **Search & filter**: Find specific images by name, owner, or project
 - **One-click select**: Selected images automatically used when provisioning VMs
+
+### 🖥️ Instance Type Browser (NEW)
+- **Filter by specs**: Find instance types by vCPU count and memory (RAM)
+- **Category browsing**: Browse by General Purpose, Compute Optimized, Memory Optimized
+- **Detailed specs**: View vCPU, memory, network performance for each type
+- **Smart filtering**: Filter AWS instances (T, M, C, R series) and GCP machines (E2, N1, N2)
+- **One-click select**: Selected instance types automatically used when provisioning VMs
+- **50+ AWS types**: Comprehensive database of AWS instance specifications
+- **70+ GCP types**: Complete GCP machine type catalog with all variants
 
 ### 🔧 Powerful CLI
 - **Comprehensive commands**: Full control via command-line interface
@@ -100,6 +109,7 @@ Navigate to http://localhost:8501 in your browser.
 - **VM Management**: Control existing VMs, attach storage, SSH access
 - **Settings**: Configure cloud provider credentials with optional encrypted storage
 - **Image Browser**: Search and select VM images (AMIs/images) for provisioning
+- **Instance Type Browser**: Filter and select instance types by vCPU and memory specifications
 
 ### Command Line Interface
 
@@ -120,12 +130,13 @@ cloud-provision gcp --help
 
 #### AWS EC2 Instance (Web UI)
 1. **(Optional)** Go to **Image Browser** → Browse AWS AMIs → Select an image
-2. Go to **Home** page
-3. Select "AWS" provider
-4. Choose region (e.g., us-east-1)
-5. Select "Virtual Machine (VM)"
-6. Configure instance details (selected image will be pre-filled)
-7. Click "🚀 Provision EC2 Instance"
+2. **(Optional)** Go to **Instance Type Browser** → Filter by vCPU/RAM → Select instance type
+3. Go to **Home** page
+4. Select "AWS" provider
+5. Choose region (e.g., us-east-1)
+6. Select "Virtual Machine (VM)"
+7. Configure instance details (selected image and instance type will be pre-filled)
+8. Click "🚀 Provision EC2 Instance"
 
 #### AWS EC2 Instance (CLI)
 ```bash
@@ -233,6 +244,7 @@ cloud_automation/
 │   ├── vm.py                # Compute Engine management
 │   └── storage.py           # Cloud Storage and Persistent Disks
 ├── credential_store.py      # Encrypted credential storage
+├── instance_specs.py        # Instance type specifications database
 ├── config.py                # Configuration management
 ├── utils.py                 # Shared utilities
 └── cli.py                   # Command-line interface
@@ -242,7 +254,8 @@ streamlit_helpers.py         # Credential helper functions
 pages/
 ├── 1_VM_Management.py       # VM management interface
 ├── 2_Settings.py            # Credential configuration UI
-└── 3_Image_Browser.py       # Image browsing and selection
+├── 3_Image_Browser.py       # Image browsing and selection
+└── 4_Instance_Type_Browser.py  # Instance type filtering by specs
 ```
 
 ## Cloud Provider Setup
@@ -394,7 +407,16 @@ For issues and questions:
 
 ## Changelog
 
-### v0.4.0 (Current)
+### v0.5.0 (Current)
+- 🖥️ **NEW**: Instance Type Browser for filtering by vCPU and memory
+- 🖥️ Filter AWS instance types by cores, RAM, and category (T, M, C, R series)
+- 🖥️ Filter GCP machine types by cores, RAM, and category (E2, N1, N2 series)
+- 🖥️ Comprehensive specifications database (50+ AWS, 70+ GCP instance types)
+- 🖥️ One-click selection integrated with provisioning workflow
+- 🖥️ Detailed specs display: vCPU, memory, network performance, burstable capability
+- 🖥️ Category-based browsing: General Purpose, Compute Optimized, Memory Optimized
+
+### v0.4.0
 - 🖼️ **NEW**: Image Browser for searching and selecting VM images
 - 🖼️ Browse AWS AMIs (Amazon, Ubuntu, Red Hat, Windows) and GCP images (Debian, Ubuntu, CentOS, etc.)
 - 🖼️ Search and filter images by name, owner, project
