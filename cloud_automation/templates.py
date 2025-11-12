@@ -207,7 +207,8 @@ def create_aws_vm_template(
     region: str,
     ami: Optional[str] = None,
     key_name: Optional[str] = None,
-    tags: Optional[Dict[str, str]] = None
+    tags: Optional[Dict[str, str]] = None,
+    spot_instance: bool = False
 ) -> Dict[str, Any]:
     """Helper to create AWS VM template configuration.
 
@@ -218,6 +219,7 @@ def create_aws_vm_template(
         ami: AMI ID (optional)
         key_name: SSH key pair name (optional)
         tags: Resource tags (optional)
+        spot_instance: Request spot instance (optional)
 
     Returns:
         Template configuration dictionary
@@ -227,7 +229,8 @@ def create_aws_vm_template(
         'region': region,
         'vm': {
             'name': name,
-            'instance_type': instance_type
+            'instance_type': instance_type,
+            'spot_instance': spot_instance
         }
     }
 
@@ -251,7 +254,8 @@ def create_gcp_vm_template(
     image_project: Optional[str] = None,
     disk_size_gb: int = 10,
     external_ip: bool = True,
-    labels: Optional[Dict[str, str]] = None
+    labels: Optional[Dict[str, str]] = None,
+    spot_vm: bool = False
 ) -> Dict[str, Any]:
     """Helper to create GCP VM template configuration.
 
@@ -266,6 +270,7 @@ def create_gcp_vm_template(
         disk_size_gb: Boot disk size
         external_ip: Assign external IP
         labels: Resource labels (optional)
+        spot_vm: Use Spot VM (optional)
 
     Returns:
         Template configuration dictionary
@@ -278,7 +283,8 @@ def create_gcp_vm_template(
             'name': name,
             'machine_type': machine_type,
             'disk_size_gb': disk_size_gb,
-            'external_ip': external_ip
+            'external_ip': external_ip,
+            'spot_vm': spot_vm
         }
     }
 

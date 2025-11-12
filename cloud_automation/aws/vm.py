@@ -51,6 +51,7 @@ class AWSVMProvisioner:
         subnet_id: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         user_data: Optional[str] = None,
+        spot_instance: bool = False,
         **kwargs: Any
     ) -> Dict[str, Any]:
         """Create an EC2 instance.
@@ -64,6 +65,7 @@ class AWSVMProvisioner:
             subnet_id: Subnet ID
             tags: Additional tags
             user_data: User data script
+            spot_instance: Request spot instance for cost savings (default: False)
             **kwargs: Additional parameters for run_instances
 
         Returns:
@@ -125,10 +127,21 @@ class AWSVMProvisioner:
             if user_data:
                 instance_params["UserData"] = user_data
 
+            # Configure spot instance if requested
+            if spot_instance:
+                instance_params["InstanceMarketOptions"] = {
+                    "MarketType": "spot",
+                    "SpotOptions": {
+                        "SpotInstanceType": "one-time"
+                    }
+                }
+                print_info("Requesting spot instance for cost savings...")
+
             # Merge additional parameters
             instance_params.update(kwargs)
 
-            print_info(f"Creating EC2 instance '{name}' ({instance_type})...")
+            instance_desc = f"spot instance" if spot_instance else f"instance"
+            print_info(f"Creating EC2 {instance_desc} '{name}' ({instance_type})...")
 
             # Create instance
             response = self.ec2_client.run_instances(**instance_params)

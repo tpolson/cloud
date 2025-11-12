@@ -57,6 +57,7 @@ class GCPVMProvisioner:
         external_ip: bool = True,
         labels: Optional[Dict[str, str]] = None,
         startup_script: Optional[str] = None,
+        spot_vm: bool = False,
         **kwargs: Any
     ) -> Dict[str, Any]:
         """Create a GCE instance.
@@ -71,6 +72,7 @@ class GCPVMProvisioner:
             external_ip: Assign external IP address
             labels: Resource labels
             startup_script: Startup script to run
+            spot_vm: Use Spot VM for cost savings (up to 91% discount, can be preempted)
             **kwargs: Additional parameters
 
         Returns:
@@ -137,7 +139,16 @@ class GCPVMProvisioner:
                 ]
                 instance.metadata = metadata
 
-            print_info(f"Creating GCE instance '{name}' ({machine_type})...")
+            # Configure Spot VM if requested
+            if spot_vm:
+                scheduling = compute_v1.Scheduling()
+                scheduling.provisioning_model = "SPOT"
+                scheduling.instance_termination_action = "STOP"
+                instance.scheduling = scheduling
+                print_info("Using Spot VM for cost savings (up to 91% discount)...")
+
+            instance_desc = f"Spot VM" if spot_vm else f"instance"
+            print_info(f"Creating GCE {instance_desc} '{name}' ({machine_type})...")
 
             # Insert the instance
             operation = self.instances_client.insert(

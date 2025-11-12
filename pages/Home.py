@@ -279,6 +279,13 @@ with col1:
                 with tag_col2:
                     tag_app = st.text_input("Application", value=template_tags.get('Application', ''), placeholder="web-server")
 
+                # Spot instance option
+                spot_instance = st.checkbox(
+                    "💰 Request Spot Instance (up to 70% cost savings)",
+                    value=vm_config.get('spot_instance', False),
+                    help="Spot instances can be interrupted by AWS with 2-minute notice. Good for fault-tolerant workloads."
+                )
+
                 submit_vm = st.form_submit_button("🚀 Provision EC2 Instance", use_container_width=True)
 
                 if submit_vm:
@@ -301,10 +308,14 @@ with col1:
                                     instance_type=instance_type,
                                     ami=ami_id if ami_id else None,
                                     key_name=key_name if key_name else None,
-                                    tags=tags if tags else None
+                                    tags=tags if tags else None,
+                                    spot_instance=spot_instance
                                 )
 
-                                st.success(f"✅ Successfully created EC2 instance: {result['instance_id']}")
+                                instance_type_desc = "spot instance" if spot_instance else "instance"
+                                st.success(f"✅ Successfully created EC2 {instance_type_desc}: {result['instance_id']}")
+                                if spot_instance:
+                                    st.info("💰 Spot instance requested - savings up to 70% vs on-demand pricing")
                                 if result.get('public_ip'):
                                     st.info(f"🌐 Public IP: {result['public_ip']}")
 
@@ -324,7 +335,8 @@ with col1:
                                         region=aws_region,
                                         ami=ami_id if ami_id else None,
                                         key_name=key_name if key_name else None,
-                                        tags=tags if tags else None
+                                        tags=tags if tags else None,
+                                        spot_instance=spot_instance
                                     )
                                     template_mgr.save_template(
                                         name=st.session_state.save_template_name,
@@ -502,6 +514,13 @@ with col1:
                 with label_col2:
                     label_app = st.text_input("application", placeholder="web-server")
 
+                # Spot VM option
+                spot_vm = st.checkbox(
+                    "💰 Use Spot VM (up to 91% cost savings)",
+                    value=False,
+                    help="Spot VMs can be preempted by GCP with 30-second notice. Ideal for fault-tolerant workloads."
+                )
+
                 submit_gcp_vm = st.form_submit_button("🚀 Provision GCE Instance", use_container_width=True)
 
                 if submit_gcp_vm:
@@ -537,7 +556,8 @@ with col1:
                                             source_image_project=selected_img['project'],
                                             disk_size_gb=disk_size,
                                             external_ip=external_ip,
-                                            labels=labels if labels else None
+                                            labels=labels if labels else None,
+                                            spot_vm=spot_vm
                                         )
                                     else:
                                         # Use specific image name
@@ -548,7 +568,8 @@ with col1:
                                             source_image_project=selected_img['project'],
                                             disk_size_gb=disk_size,
                                             external_ip=external_ip,
-                                            labels=labels if labels else None
+                                            labels=labels if labels else None,
+                                            spot_vm=spot_vm
                                         )
                                 else:
                                     # Use default image family
@@ -558,10 +579,14 @@ with col1:
                                         source_image_family=image_family if image_family else "debian-11",
                                         disk_size_gb=disk_size,
                                         external_ip=external_ip,
-                                        labels=labels if labels else None
+                                        labels=labels if labels else None,
+                                        spot_vm=spot_vm
                                     )
 
-                                st.success(f"✅ Successfully created GCE instance: {instance_name}")
+                                vm_type_desc = "Spot VM" if spot_vm else "instance"
+                                st.success(f"✅ Successfully created GCE {vm_type_desc}: {instance_name}")
+                                if spot_vm:
+                                    st.info("💰 Spot VM requested - savings up to 91% vs standard pricing")
                                 if result.get('external_ip'):
                                     st.info(f"🌐 External IP: {result['external_ip']}")
 
