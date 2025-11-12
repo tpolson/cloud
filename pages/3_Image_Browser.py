@@ -1,6 +1,7 @@
 """Image Browser Page for Cloud Automation Tool."""
 
 import streamlit as st
+import pandas as pd
 from cloud_automation.aws.vm import AWSVMProvisioner
 from cloud_automation.gcp.vm import GCPVMProvisioner
 from streamlit_helpers import (
@@ -185,21 +186,41 @@ if provider == "AWS":
                     for category, images in popular.items():
                         if images:
                             st.markdown(f"### {category}")
+
+                            # Prepare dataframe
+                            df_data = []
                             for img in images:
-                                col1, col2, col3 = st.columns([3, 2, 1])
+                                df_data.append({
+                                    'Name': img['name'],
+                                    'AMI ID': img['image_id'],
+                                    'Description': img.get('description', 'N/A')[:80],
+                                    'Created': img.get('creation_date', 'N/A')[:10]
+                                })
 
+                            df = pd.DataFrame(df_data)
+
+                            # Display dataframe with row selection
+                            selection = st.dataframe(
+                                df,
+                                use_container_width=True,
+                                hide_index=True,
+                                on_select="rerun",
+                                selection_mode="single-row",
+                                height=min(len(df) * 35 + 38, 300)  # Dynamic height, max 300px
+                            )
+
+                            # Handle selection
+                            if selection and 'selection' in selection and 'rows' in selection['selection'] and selection['selection']['rows']:
+                                selected_idx = selection['selection']['rows'][0]
+                                selected_img = images[selected_idx]
+
+                                col1, col2 = st.columns([3, 1])
                                 with col1:
-                                    st.write(f"**{img['name']}**")
-                                    st.caption(img.get('description', 'N/A')[:100])
-
+                                    st.info(f"**Selected:** {selected_img['name']} ({selected_img['image_id']})")
                                 with col2:
-                                    st.write(f"AMI: `{img['image_id']}`")
-                                    st.caption(f"Created: {img.get('creation_date', 'N/A')[:10]}")
-
-                                with col3:
-                                    if st.button("Select", key=f"select_{img['image_id']}"):
-                                        st.session_state.selected_aws_image = img['image_id']
-                                        st.success(f"✅ Selected {img['image_id']}")
+                                    if st.button(f"✅ Confirm", key=f"confirm_{category}_{selected_img['image_id']}"):
+                                        st.session_state.selected_aws_image = selected_img['image_id']
+                                        st.success(f"Confirmed: {selected_img['image_id']}")
                                         st.rerun()
 
                             st.markdown("---")
@@ -230,23 +251,43 @@ if provider == "AWS":
                             if results:
                                 st.success(f"Found {len(results)} images")
 
+                                # Prepare dataframe
+                                df_data = []
                                 for img in results:
-                                    with st.expander(f"{img['name']}", expanded=False):
-                                        col1, col2 = st.columns([3, 1])
+                                    df_data.append({
+                                        'Name': img['name'],
+                                        'AMI ID': img['image_id'],
+                                        'Description': img['description'][:80] if img['description'] else 'N/A',
+                                        'Arch': img['architecture'],
+                                        'Platform': img['platform'],
+                                        'Created': img['creation_date'][:10]
+                                    })
 
-                                        with col1:
-                                            st.write(f"**AMI ID:** `{img['image_id']}`")
-                                            st.write(f"**Description:** {img['description'][:150]}")
-                                            st.write(f"**Architecture:** {img['architecture']}")
-                                            st.write(f"**Platform:** {img['platform']}")
-                                            st.write(f"**Created:** {img['creation_date'][:10]}")
-                                            st.write(f"**Public:** {'Yes' if img['public'] else 'No'}")
+                                df = pd.DataFrame(df_data)
 
-                                        with col2:
-                                            if st.button("Select", key=f"search_{img['image_id']}"):
-                                                st.session_state.selected_aws_image = img['image_id']
-                                                st.success(f"✅ Selected!")
-                                                st.rerun()
+                                # Display dataframe
+                                selection = st.dataframe(
+                                    df,
+                                    use_container_width=True,
+                                    hide_index=True,
+                                    on_select="rerun",
+                                    selection_mode="single-row",
+                                    height=400
+                                )
+
+                                # Handle selection
+                                if selection and 'selection' in selection and 'rows' in selection['selection'] and selection['selection']['rows']:
+                                    selected_idx = selection['selection']['rows'][0]
+                                    selected_img = results[selected_idx]
+
+                                    col1, col2 = st.columns([3, 1])
+                                    with col1:
+                                        st.info(f"**Selected:** {selected_img['name']} ({selected_img['image_id']})")
+                                    with col2:
+                                        if st.button("✅ Confirm", key=f"search_confirm_{selected_img['image_id']}"):
+                                            st.session_state.selected_aws_image = selected_img['image_id']
+                                            st.success(f"Confirmed!")
+                                            st.rerun()
                             else:
                                 st.warning("No images found matching your search")
                         except Exception as e:
@@ -265,21 +306,42 @@ if provider == "AWS":
                         if my_images:
                             st.success(f"Found {len(my_images)} custom AMIs")
 
+                            # Prepare dataframe
+                            df_data = []
                             for img in my_images:
-                                with st.expander(f"{img['name']}", expanded=False):
-                                    col1, col2 = st.columns([3, 1])
+                                df_data.append({
+                                    'Name': img['name'],
+                                    'AMI ID': img['image_id'],
+                                    'Description': img['description'][:80] if img['description'] else 'N/A',
+                                    'Arch': img['architecture'],
+                                    'Created': img['creation_date'][:10]
+                                })
 
-                                    with col1:
-                                        st.write(f"**AMI ID:** `{img['image_id']}`")
-                                        st.write(f"**Description:** {img['description']}")
-                                        st.write(f"**Architecture:** {img['architecture']}")
-                                        st.write(f"**Created:** {img['creation_date'][:10]}")
+                            df = pd.DataFrame(df_data)
 
-                                    with col2:
-                                        if st.button("Select", key=f"my_{img['image_id']}"):
-                                            st.session_state.selected_aws_image = img['image_id']
-                                            st.success(f"✅ Selected!")
-                                            st.rerun()
+                            # Display dataframe
+                            selection = st.dataframe(
+                                df,
+                                use_container_width=True,
+                                hide_index=True,
+                                on_select="rerun",
+                                selection_mode="single-row",
+                                height=400
+                            )
+
+                            # Handle selection
+                            if selection and 'selection' in selection and 'rows' in selection['selection'] and selection['selection']['rows']:
+                                selected_idx = selection['selection']['rows'][0]
+                                selected_img = my_images[selected_idx]
+
+                                col1, col2 = st.columns([3, 1])
+                                with col1:
+                                    st.info(f"**Selected:** {selected_img['name']} ({selected_img['image_id']})")
+                                with col2:
+                                    if st.button("✅ Confirm", key=f"my_confirm_{selected_img['image_id']}"):
+                                        st.session_state.selected_aws_image = selected_img['image_id']
+                                        st.success(f"Confirmed!")
+                                        st.rerun()
                         else:
                             st.info("No custom AMIs found in your account")
                     except Exception as e:
@@ -323,21 +385,44 @@ if provider == "AWS":
                             start_idx = page * items_per_page
                             end_idx = start_idx + items_per_page
 
-                            for img in all_images[start_idx:end_idx]:
-                                with st.expander(f"{img['name']}", expanded=False):
-                                    col1, col2 = st.columns([3, 1])
+                            page_images = all_images[start_idx:end_idx]
 
-                                    with col1:
-                                        st.write(f"**AMI ID:** `{img['image_id']}`")
-                                        st.write(f"**Description:** {img['description'][:150]}")
-                                        st.write(f"**Architecture:** {img['architecture']}")
-                                        st.write(f"**Created:** {img['creation_date'][:10]}")
+                            # Prepare dataframe
+                            df_data = []
+                            for img in page_images:
+                                df_data.append({
+                                    'Name': img['name'],
+                                    'AMI ID': img['image_id'],
+                                    'Description': img['description'][:80] if img['description'] else 'N/A',
+                                    'Arch': img['architecture'],
+                                    'Created': img['creation_date'][:10]
+                                })
 
-                                    with col2:
-                                        if st.button("Select", key=f"all_{img['image_id']}"):
-                                            st.session_state.selected_aws_image = img['image_id']
-                                            st.success(f"✅ Selected!")
-                                            st.rerun()
+                            df = pd.DataFrame(df_data)
+
+                            # Display dataframe
+                            selection = st.dataframe(
+                                df,
+                                use_container_width=True,
+                                hide_index=True,
+                                on_select="rerun",
+                                selection_mode="single-row",
+                                height=400
+                            )
+
+                            # Handle selection
+                            if selection and 'selection' in selection and 'rows' in selection['selection'] and selection['selection']['rows']:
+                                selected_idx = selection['selection']['rows'][0]
+                                selected_img = page_images[selected_idx]
+
+                                col1, col2 = st.columns([3, 1])
+                                with col1:
+                                    st.info(f"**Selected:** {selected_img['name']} ({selected_img['image_id']})")
+                                with col2:
+                                    if st.button("✅ Confirm", key=f"all_confirm_{selected_img['image_id']}"):
+                                        st.session_state.selected_aws_image = selected_img['image_id']
+                                        st.success(f"Confirmed!")
+                                        st.rerun()
                         else:
                             st.info("No images found")
                     except Exception as e:
@@ -375,24 +460,44 @@ else:
                         for category, images in popular.items():
                             if images:
                                 st.markdown(f"### {category}")
+
+                                # Prepare dataframe
+                                df_data = []
                                 for img in images:
-                                    col1, col2, col3 = st.columns([3, 2, 1])
+                                    df_data.append({
+                                        'Name': img['name'],
+                                        'Family': img['family'],
+                                        'Image': img['image_name'],
+                                        'Project': img['project']
+                                    })
 
+                                df = pd.DataFrame(df_data)
+
+                                # Display dataframe
+                                selection = st.dataframe(
+                                    df,
+                                    use_container_width=True,
+                                    hide_index=True,
+                                    on_select="rerun",
+                                    selection_mode="single-row",
+                                    height=min(len(df) * 35 + 38, 300)
+                                )
+
+                                # Handle selection
+                                if selection and 'selection' in selection and 'rows' in selection['selection'] and selection['selection']['rows']:
+                                    selected_idx = selection['selection']['rows'][0]
+                                    selected_img = images[selected_idx]
+
+                                    col1, col2 = st.columns([3, 1])
                                     with col1:
-                                        st.write(f"**{img['name']}**")
-                                        st.caption(f"Family: {img['family']}")
-
+                                        st.info(f"**Selected:** {selected_img['name']} ({selected_img['family']})")
                                     with col2:
-                                        st.write(f"Image: `{img['image_name']}`")
-                                        st.caption(f"Project: {img['project']}")
-
-                                    with col3:
-                                        if st.button("Select", key=f"select_{img['family']}_{img['project']}"):
+                                        if st.button(f"✅ Confirm", key=f"confirm_gcp_{category}_{selected_img['family']}"):
                                             st.session_state.selected_gcp_image = {
-                                                'family': img['family'],
-                                                'project': img['project']
+                                                'family': selected_img['family'],
+                                                'project': selected_img['project']
                                             }
-                                            st.success(f"✅ Selected!")
+                                            st.success(f"Confirmed!")
                                             st.rerun()
 
                                 st.markdown("---")
@@ -424,27 +529,47 @@ else:
                                 if results:
                                     st.success(f"Found {len(results)} images")
 
+                                    # Prepare dataframe
+                                    df_data = []
                                     for img in results:
-                                        with st.expander(f"{img['name']}", expanded=False):
-                                            col1, col2 = st.columns([3, 1])
+                                        df_data.append({
+                                            'Name': img['name'],
+                                            'Family': img['family'],
+                                            'Description': img['description'][:80] if img['description'] else 'N/A',
+                                            'Arch': img['architecture'],
+                                            'Size (GB)': img['disk_size_gb'],
+                                            'Created': img['creation_timestamp'][:10],
+                                            'Project': img['project']
+                                        })
 
-                                            with col1:
-                                                st.write(f"**Name:** {img['name']}")
-                                                st.write(f"**Family:** {img['family']}")
-                                                st.write(f"**Description:** {img['description'][:150]}")
-                                                st.write(f"**Architecture:** {img['architecture']}")
-                                                st.write(f"**Size:** {img['disk_size_gb']} GB")
-                                                st.write(f"**Created:** {img['creation_timestamp'][:10]}")
-                                                st.write(f"**Project:** {img['project']}")
+                                    df = pd.DataFrame(df_data)
 
-                                            with col2:
-                                                if st.button("Select", key=f"search_{img['name']}"):
-                                                    st.session_state.selected_gcp_image = {
-                                                        'name': img['name'],
-                                                        'project': img['project']
-                                                    }
-                                                    st.success(f"✅ Selected!")
-                                                    st.rerun()
+                                    # Display dataframe
+                                    selection = st.dataframe(
+                                        df,
+                                        use_container_width=True,
+                                        hide_index=True,
+                                        on_select="rerun",
+                                        selection_mode="single-row",
+                                        height=400
+                                    )
+
+                                    # Handle selection
+                                    if selection and 'selection' in selection and 'rows' in selection['selection'] and selection['selection']['rows']:
+                                        selected_idx = selection['selection']['rows'][0]
+                                        selected_img = results[selected_idx]
+
+                                        col1, col2 = st.columns([3, 1])
+                                        with col1:
+                                            st.info(f"**Selected:** {selected_img['name']} ({selected_img['project']})")
+                                        with col2:
+                                            if st.button("✅ Confirm", key=f"search_gcp_confirm_{selected_img['name']}"):
+                                                st.session_state.selected_gcp_image = {
+                                                    'name': selected_img['name'],
+                                                    'project': selected_img['project']
+                                                }
+                                                st.success(f"Confirmed!")
+                                                st.rerun()
                                 else:
                                     st.warning("No images found matching your search")
                             except Exception as e:
@@ -463,25 +588,45 @@ else:
                             if my_images:
                                 st.success(f"Found {len(my_images)} custom images")
 
+                                # Prepare dataframe
+                                df_data = []
                                 for img in my_images:
-                                    with st.expander(f"{img['name']}", expanded=False):
-                                        col1, col2 = st.columns([3, 1])
+                                    df_data.append({
+                                        'Name': img['name'],
+                                        'Family': img['family'],
+                                        'Description': img['description'][:80] if img['description'] else 'N/A',
+                                        'Size (GB)': img['disk_size_gb'],
+                                        'Created': img['creation_timestamp'][:10]
+                                    })
 
-                                        with col1:
-                                            st.write(f"**Name:** {img['name']}")
-                                            st.write(f"**Family:** {img['family']}")
-                                            st.write(f"**Description:** {img['description']}")
-                                            st.write(f"**Size:** {img['disk_size_gb']} GB")
-                                            st.write(f"**Created:** {img['creation_timestamp'][:10]}")
+                                df = pd.DataFrame(df_data)
 
-                                        with col2:
-                                            if st.button("Select", key=f"my_{img['name']}"):
-                                                st.session_state.selected_gcp_image = {
-                                                    'name': img['name'],
-                                                    'project': gcp_project
-                                                }
-                                                st.success(f"✅ Selected!")
-                                                st.rerun()
+                                # Display dataframe
+                                selection = st.dataframe(
+                                    df,
+                                    use_container_width=True,
+                                    hide_index=True,
+                                    on_select="rerun",
+                                    selection_mode="single-row",
+                                    height=400
+                                )
+
+                                # Handle selection
+                                if selection and 'selection' in selection and 'rows' in selection['selection'] and selection['selection']['rows']:
+                                    selected_idx = selection['selection']['rows'][0]
+                                    selected_img = my_images[selected_idx]
+
+                                    col1, col2 = st.columns([3, 1])
+                                    with col1:
+                                        st.info(f"**Selected:** {selected_img['name']}")
+                                    with col2:
+                                        if st.button("✅ Confirm", key=f"my_gcp_confirm_{selected_img['name']}"):
+                                            st.session_state.selected_gcp_image = {
+                                                'name': selected_img['name'],
+                                                'project': gcp_project
+                                            }
+                                            st.success(f"Confirmed!")
+                                            st.rerun()
                             else:
                                 st.info("No custom images found in your project")
                         except Exception as e:
@@ -514,25 +659,46 @@ else:
                             if project_images:
                                 st.success(f"Found {len(project_images)} images in {selected_project}")
 
+                                # Prepare dataframe
+                                df_data = []
                                 for img in project_images:
-                                    with st.expander(f"{img['name']}", expanded=False):
-                                        col1, col2 = st.columns([3, 1])
+                                    df_data.append({
+                                        'Name': img['name'],
+                                        'Family': img['family'],
+                                        'Description': img['description'][:80],
+                                        'Size (GB)': img['disk_size_gb'],
+                                        'Created': img['creation_timestamp'][:10],
+                                        'Project': selected_project
+                                    })
 
-                                        with col1:
-                                            st.write(f"**Name:** {img['name']}")
-                                            st.write(f"**Family:** {img['family']}")
-                                            st.write(f"**Description:** {img['description'][:150]}")
-                                            st.write(f"**Size:** {img['disk_size_gb']} GB")
-                                            st.write(f"**Created:** {img['creation_timestamp'][:10]}")
+                                df = pd.DataFrame(df_data)
 
-                                        with col2:
-                                            if st.button("Select", key=f"pub_{img['name']}"):
-                                                st.session_state.selected_gcp_image = {
-                                                    'name': img['name'],
-                                                    'project': selected_project
-                                                }
-                                                st.success(f"✅ Selected!")
-                                                st.rerun()
+                                # Display dataframe with row selection
+                                selection = st.dataframe(
+                                    df,
+                                    use_container_width=True,
+                                    hide_index=True,
+                                    on_select="rerun",
+                                    selection_mode="single-row",
+                                    height=400
+                                )
+
+                                # Handle selection
+                                if selection and 'selection' in selection and 'rows' in selection['selection'] and selection['selection']['rows']:
+                                    selected_idx = selection['selection']['rows'][0]
+                                    selected_img = project_images[selected_idx]
+
+                                    col1, col2 = st.columns([3, 1])
+                                    with col1:
+                                        st.info(f"**Selected:** {selected_img['name']} from {selected_project}")
+                                    with col2:
+                                        if st.button("✅ Confirm", key=f"confirm_project_{selected_img['name']}", use_container_width=True):
+                                            st.session_state.selected_gcp_image = {
+                                                'name': selected_img['name'],
+                                                'project': selected_project
+                                            }
+                                            st.success(f"Confirmed: {selected_img['name']}")
+                                            st.rerun()
                             else:
                                 st.info(f"No images found in {selected_project}")
                         except Exception as e:
