@@ -8,6 +8,13 @@ from cloud_automation.aws.vm import AWSVMProvisioner
 from cloud_automation.aws.storage import AWSStorageProvisioner
 from cloud_automation.gcp.vm import GCPVMProvisioner
 from cloud_automation.gcp.storage import GCPStorageProvisioner
+from cloud_automation.templates import (
+    TemplateManager,
+    create_aws_vm_template,
+    create_gcp_vm_template,
+    create_aws_storage_template,
+    create_gcp_storage_template
+)
 from streamlit_helpers import (
     initialize_session_state,
     get_aws_credentials,
@@ -62,6 +69,9 @@ initialize_session_state()
 if 'provisioning_history' not in st.session_state:
     st.session_state.provisioning_history = []
 
+# Initialize template manager
+template_mgr = TemplateManager()
+
 # Header
 st.markdown('<h1 class="main-header">☁️ Cloud Automation Tool</h1>', unsafe_allow_html=True)
 st.info("💡 **Quick Start**: Configure your credentials in **Settings** → Provision resources here → Manage VMs in **VM Management**")
@@ -86,6 +96,92 @@ with st.sidebar:
     st.markdown("---")
     st.info("💡 **Tip**: Configure your cloud credentials in the **Settings** page (sidebar navigation) before provisioning!")
 
+    # Template Management Section
+    st.markdown("---")
+    st.subheader("📋 Configuration Templates")
+
+    template_action = st.radio(
+        "Template Action",
+        ["Load Template", "Save Current as Template", "Manage Templates"],
+        horizontal=False,
+        key="template_action"
+    )
+
+    if template_action == "Load Template":
+        # List available templates for current provider
+        provider_key = "aws" if provider == "AWS" else "gcp"
+        templates = template_mgr.list_templates(provider=provider_key)
+
+        if templates:
+            template_names = [t['name'] for t in templates]
+            selected_template = st.selectbox(
+                "Select Template",
+                template_names,
+                key="selected_template"
+            )
+
+            if st.button("📥 Load Template", use_container_width=True):
+                try:
+                    loaded = template_mgr.load_template(selected_template, provider_key)
+                    st.session_state.loaded_template = loaded['config']
+                    st.session_state.template_loaded = True
+                    st.success(f"✅ Loaded template: {selected_template}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Failed to load template: {e}")
+        else:
+            st.info(f"No {provider_key.upper()} templates saved yet")
+
+    elif template_action == "Save Current as Template":
+        with st.form("save_template_form"):
+            template_name = st.text_input(
+                "Template Name",
+                placeholder="e.g., Web Server Standard",
+                help="Give your template a descriptive name"
+            )
+            template_desc = st.text_area(
+                "Description (Optional)",
+                placeholder="Describe this configuration...",
+                height=80
+            )
+
+            save_template_btn = st.form_submit_button("💾 Save Template", use_container_width=True)
+
+            if save_template_btn:
+                if not template_name:
+                    st.error("❌ Template name is required")
+                else:
+                    st.session_state.save_template_name = template_name
+                    st.session_state.save_template_desc = template_desc
+                    st.session_state.save_template_trigger = True
+                    st.info("✅ Fill in the form below and the template will be saved")
+
+    elif template_action == "Manage Templates":
+        provider_key = "aws" if provider == "AWS" else "gcp"
+        templates = template_mgr.list_templates(provider=provider_key)
+
+        if templates:
+            st.write(f"**{len(templates)} template(s) found:**")
+
+            for template in templates:
+                col_t1, col_t2 = st.columns([3, 1])
+                with col_t1:
+                    st.write(f"**{template['name']}**")
+                    if template['description']:
+                        st.caption(template['description'])
+                with col_t2:
+                    if st.button("🗑️ Delete", key=f"delete_{template['name']}", use_container_width=True):
+                        try:
+                            template_mgr.delete_template(template['name'], provider_key)
+                            st.success(f"✅ Deleted: {template['name']}")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Error: {e}")
+
+                st.markdown("---")
+        else:
+            st.info(f"No {provider_key.upper()} templates saved yet")
+
 # Main content area
 col1, col2 = st.columns([2, 1])
 
@@ -94,11 +190,30 @@ with col1:
     if provider == "AWS":
         st.header("🔶 AWS Configuration")
 
+        # Check for loaded template
+        loaded_template = st.session_state.get('loaded_template', {})
+        template_loaded = st.session_state.get('template_loaded', False)
+
+        if template_loaded:
+            col_info1, col_info2 = st.columns([3, 1])
+            with col_info1:
+                st.info("✅ Template loaded - form fields pre-filled below")
+            with col_info2:
+                if st.button("🗑️ Clear", key="clear_aws_template"):
+                    st.session_state.loaded_template = {}
+                    st.session_state.template_loaded = False
+                    st.rerun()
+
         # Common AWS settings
+        default_region = loaded_template.get('region', 'us-east-1') if loaded_template else 'us-east-1'
+        region_options = ["us-east-1", "us-east-2", "us-west-1", "us-west-2",
+                          "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"]
+        region_index = region_options.index(default_region) if default_region in region_options else 0
+
         aws_region = st.selectbox(
             "AWS Region",
-            ["us-east-1", "us-east-2", "us-west-1", "us-west-2",
-             "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1"],
+            region_options,
+            index=region_index,
             help="Select the AWS region"
         )
 
@@ -114,23 +229,33 @@ with col1:
                 st.info("💡 Browse and select an AMI in the **Image Browser** page, or enter one manually below")
 
             with st.form("aws_vm_form"):
+                # Pre-fill from template if loaded
+                vm_config = loaded_template.get('vm', {}) if template_loaded else {}
+
                 instance_name = st.text_input(
                     "Instance Name",
+                    value=vm_config.get('name', ''),
                     placeholder="my-server",
                     help="Name for your EC2 instance"
                 )
 
+                # Instance type selection with template default
+                instance_type_options = ["t2.micro", "t2.small", "t2.medium", "t3.micro",
+                                         "t3.small", "t3.medium", "t3.large"]
+                template_instance_type = vm_config.get('instance_type')
+                instance_type_index = instance_type_options.index(template_instance_type) if template_instance_type in instance_type_options else 0
+
                 instance_type = st.selectbox(
                     "Instance Type",
-                    ["t2.micro", "t2.small", "t2.medium", "t3.micro",
-                     "t3.small", "t3.medium", "t3.large"],
+                    instance_type_options,
+                    index=instance_type_index,
                     help="Choose instance size"
                 )
 
                 col_a, col_b = st.columns(2)
                 with col_a:
-                    # Pre-fill with selected image if available
-                    default_ami = st.session_state.get('selected_aws_image', '')
+                    # Pre-fill with template or selected image
+                    default_ami = vm_config.get('ami') or st.session_state.get('selected_aws_image', '')
                     ami_id = st.text_input(
                         "AMI ID (Optional)",
                         value=default_ami,
@@ -140,17 +265,19 @@ with col1:
                 with col_b:
                     key_name = st.text_input(
                         "SSH Key Pair (Optional)",
+                        value=vm_config.get('key_name', ''),
                         placeholder="my-key-pair",
                         help="SSH key for access"
                     )
 
                 # Tags
                 st.write("**Tags (Optional)**")
+                template_tags = vm_config.get('tags', {})
                 tag_col1, tag_col2 = st.columns(2)
                 with tag_col1:
-                    tag_env = st.text_input("Environment", placeholder="production")
+                    tag_env = st.text_input("Environment", value=template_tags.get('Environment', ''), placeholder="production")
                 with tag_col2:
-                    tag_app = st.text_input("Application", placeholder="web-server")
+                    tag_app = st.text_input("Application", value=template_tags.get('Application', ''), placeholder="web-server")
 
                 submit_vm = st.form_submit_button("🚀 Provision EC2 Instance", use_container_width=True)
 
@@ -188,6 +315,25 @@ with col1:
                                     'name': instance_name,
                                     'details': result
                                 })
+
+                                # Save template if requested
+                                if st.session_state.get('save_template_trigger'):
+                                    template_config = create_aws_vm_template(
+                                        name=instance_name,
+                                        instance_type=instance_type,
+                                        region=aws_region,
+                                        ami=ami_id if ami_id else None,
+                                        key_name=key_name if key_name else None,
+                                        tags=tags if tags else None
+                                    )
+                                    template_mgr.save_template(
+                                        name=st.session_state.save_template_name,
+                                        provider="aws",
+                                        config=template_config,
+                                        description=st.session_state.get('save_template_desc', '')
+                                    )
+                                    st.success(f"💾 Template saved: {st.session_state.save_template_name}")
+                                    st.session_state.save_template_trigger = False
 
                             except Exception as e:
                                 st.error(f"❌ Error: {str(e)}")
