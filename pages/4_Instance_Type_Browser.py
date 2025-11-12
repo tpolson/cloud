@@ -7,6 +7,36 @@ from cloud_automation.instance_specs import (
     get_instance_categories,
 )
 
+# Cached functions for instance type filtering
+@st.cache_data(ttl=3600)  # 1 hour cache (instance specs don't change frequently)
+def get_cached_aws_instances(min_vcpu: int, max_vcpu: int, min_memory: float, max_memory: float, category: str = None, burstable_only: bool = False):
+    """Cached AWS instance type filtering."""
+    return filter_aws_instances(
+        min_vcpu=min_vcpu,
+        max_vcpu=max_vcpu,
+        min_memory_gb=min_memory,
+        max_memory_gb=max_memory,
+        category=category,
+        burstable_only=burstable_only
+    )
+
+@st.cache_data(ttl=3600)  # 1 hour cache
+def get_cached_gcp_machines(min_vcpu: int, max_vcpu: int, min_memory: float, max_memory: float, category: str = None, exclude_shared: bool = False):
+    """Cached GCP machine type filtering."""
+    return filter_gcp_machines(
+        min_vcpu=min_vcpu,
+        max_vcpu=max_vcpu,
+        min_memory_gb=min_memory,
+        max_memory_gb=max_memory,
+        category=category,
+        exclude_shared_cpu=exclude_shared
+    )
+
+@st.cache_data(ttl=3600)  # 1 hour cache
+def get_cached_categories():
+    """Cached instance categories."""
+    return get_instance_categories()
+
 st.set_page_config(page_title="Instance Type Browser", page_icon="🖥️", layout="wide")
 
 st.title("🖥️ Instance Type Browser")
@@ -24,8 +54,8 @@ provider = st.radio(
 
 st.markdown("---")
 
-# Get categories
-categories = get_instance_categories()
+# Get categories (cached)
+categories = get_cached_categories()
 
 if provider == "AWS":
     st.subheader("🔍 Filter AWS Instance Types")
@@ -83,13 +113,13 @@ if provider == "AWS":
         key="aws_burstable"
     )
 
-    # Filter instances
+    # Filter instances (cached)
     category_filter = None if selected_category == "All" else selected_category
-    instances = filter_aws_instances(
+    instances = get_cached_aws_instances(
         min_vcpu=min_vcpu,
         max_vcpu=max_vcpu,
-        min_memory_gb=min_memory,
-        max_memory_gb=max_memory,
+        min_memory=min_memory,
+        max_memory=max_memory,
         category=category_filter,
         burstable_only=burstable_only
     )
@@ -188,15 +218,15 @@ else:  # GCP
         key="gcp_exclude_shared"
     )
 
-    # Filter machines
+    # Filter machines (cached)
     category_filter = None if selected_category == "All" else selected_category
-    machines = filter_gcp_machines(
+    machines = get_cached_gcp_machines(
         min_vcpu=min_vcpu,
         max_vcpu=max_vcpu,
-        min_memory_gb=min_memory,
-        max_memory_gb=max_memory,
+        min_memory=min_memory,
+        max_memory=max_memory,
         category=category_filter,
-        exclude_shared_cpu=exclude_shared
+        exclude_shared=exclude_shared
     )
 
     st.markdown("---")

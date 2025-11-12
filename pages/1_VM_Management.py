@@ -100,6 +100,11 @@ if provider == "AWS":
         provisioner = AWSVMProvisioner(region=aws_region, **aws_creds)
         instances = provisioner.list_instances()
 
+        # Pre-fetch volumes once for all instances (fix N+1 query)
+        storage_provisioner = AWSStorageProvisioner(region=aws_region, **aws_creds)
+        all_volumes = storage_provisioner.list_ebs_volumes()
+        available_volumes = [v for v in all_volumes if v['state'] == 'available']
+
         if not instances:
             st.info("No EC2 instances found in this region.")
         else:

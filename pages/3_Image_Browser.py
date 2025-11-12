@@ -12,6 +12,91 @@ from streamlit_helpers import (
     get_gcp_zone
 )
 
+# Cached functions for image retrieval
+@st.cache_data(ttl=300)  # 5 minute cache for images
+def get_cached_aws_popular_images(region: str, access_key_id: str):
+    """Cached retrieval of popular AWS images."""
+    provisioner = AWSVMProvisioner(
+        region=region,
+        access_key_id=access_key_id,
+        secret_access_key=st.session_state.aws_credentials['secret_access_key']
+    )
+    return provisioner.get_popular_images()
+
+@st.cache_data(ttl=300)  # 5 minute cache
+def get_cached_aws_search(region: str, access_key_id: str, search_term: str, owner: str):
+    """Cached AWS image search results."""
+    provisioner = AWSVMProvisioner(
+        region=region,
+        access_key_id=access_key_id,
+        secret_access_key=st.session_state.aws_credentials['secret_access_key']
+    )
+    return provisioner.search_images(search_term, owner=owner)
+
+@st.cache_data(ttl=300)  # 5 minute cache
+def get_cached_aws_my_images(region: str, access_key_id: str):
+    """Cached retrieval of user's custom AMIs."""
+    provisioner = AWSVMProvisioner(
+        region=region,
+        access_key_id=access_key_id,
+        secret_access_key=st.session_state.aws_credentials['secret_access_key']
+    )
+    return provisioner.list_images(owners=['self'], max_results=50)
+
+@st.cache_data(ttl=300)  # 5 minute cache
+def get_cached_aws_all_images(region: str, access_key_id: str, owners: list):
+    """Cached retrieval of all available images."""
+    provisioner = AWSVMProvisioner(
+        region=region,
+        access_key_id=access_key_id,
+        secret_access_key=st.session_state.aws_credentials['secret_access_key']
+    )
+    return provisioner.list_images(owners=owners, max_results=100)
+
+@st.cache_data(ttl=300)  # 5 minute cache
+def get_cached_gcp_popular_images(project_id: str, zone: str):
+    """Cached retrieval of popular GCP images."""
+    gcp_creds = get_gcp_credentials()
+    provisioner = GCPVMProvisioner(
+        project_id=project_id,
+        zone=zone,
+        credentials=gcp_creds
+    )
+    return provisioner.get_popular_images()
+
+@st.cache_data(ttl=300)  # 5 minute cache
+def get_cached_gcp_search(project_id: str, zone: str, search_term: str, project_filter: str = None):
+    """Cached GCP image search results."""
+    gcp_creds = get_gcp_credentials()
+    provisioner = GCPVMProvisioner(
+        project_id=project_id,
+        zone=zone,
+        credentials=gcp_creds
+    )
+    return provisioner.search_images(search_term, project=project_filter)
+
+@st.cache_data(ttl=300)  # 5 minute cache
+def get_cached_gcp_my_images(project_id: str, zone: str):
+    """Cached retrieval of user's custom GCP images."""
+    gcp_creds = get_gcp_credentials()
+    provisioner = GCPVMProvisioner(
+        project_id=project_id,
+        zone=zone,
+        credentials=gcp_creds
+    )
+    return provisioner.list_images(project=project_id, max_results=50)
+
+@st.cache_data(ttl=300)  # 5 minute cache
+def get_cached_gcp_project_images(project_id: str, zone: str, target_project: str):
+    """Cached retrieval of public project images."""
+    gcp_creds = get_gcp_credentials()
+    provisioner = GCPVMProvisioner(
+        project_id=project_id,
+        zone=zone,
+        credentials=gcp_creds
+    )
+    return provisioner.list_images(project=target_project, max_results=50)
+
 # Page configuration
 st.set_page_config(
     page_title="Image Browser - Cloud Automation",
@@ -119,7 +204,7 @@ if provider == "AWS":
 
             with st.spinner("Loading popular images..."):
                 try:
-                    popular = provisioner.get_popular_images()
+                    popular = get_cached_aws_popular_images(aws_region, aws_creds['access_key_id'])
 
                     for category, images in popular.items():
                         if images:
@@ -164,7 +249,7 @@ if provider == "AWS":
                 if search_term:
                     with st.spinner(f"Searching for '{search_term}'..."):
                         try:
-                            results = provisioner.search_images(search_term, owner=owner_filter)
+                            results = get_cached_aws_search(aws_region, aws_creds['access_key_id'], search_term, owner_filter)
 
                             if results:
                                 st.success(f"Found {len(results)} images")
@@ -199,7 +284,7 @@ if provider == "AWS":
             if st.button("🔄 Load My Images", use_container_width=True):
                 with st.spinner("Loading your custom AMIs..."):
                     try:
-                        my_images = provisioner.list_images(owners=['self'], max_results=50)
+                        my_images = get_cached_aws_my_images(aws_region, aws_creds['access_key_id'])
 
                         if my_images:
                             st.success(f"Found {len(my_images)} custom AMIs")
@@ -244,7 +329,7 @@ if provider == "AWS":
                         else:
                             owners = ['amazon', 'self']
 
-                        all_images = provisioner.list_images(owners=owners, max_results=100)
+                        all_images = get_cached_aws_all_images(aws_region, aws_creds['access_key_id'], owners)
 
                         if all_images:
                             st.success(f"Loaded {len(all_images)} images")
@@ -309,7 +394,7 @@ else:
 
                 with st.spinner("Loading popular images..."):
                     try:
-                        popular = provisioner.get_popular_images()
+                        popular = get_cached_gcp_popular_images(gcp_project, gcp_zone)
 
                         for category, images in popular.items():
                             if images:
@@ -358,7 +443,7 @@ else:
                         with st.spinner(f"Searching for '{search_term}'..."):
                             try:
                                 project_to_search = project_filter if project_filter else None
-                                results = provisioner.search_images(search_term, project=project_to_search)
+                                results = get_cached_gcp_search(gcp_project, gcp_zone, search_term, project_to_search)
 
                                 if results:
                                     st.success(f"Found {len(results)} images")
@@ -397,7 +482,7 @@ else:
                 if st.button("🔄 Load My Images", use_container_width=True):
                     with st.spinner("Loading your custom images..."):
                         try:
-                            my_images = provisioner.list_images(project=gcp_project, max_results=50)
+                            my_images = get_cached_gcp_my_images(gcp_project, gcp_zone)
 
                             if my_images:
                                 st.success(f"Found {len(my_images)} custom images")
@@ -448,7 +533,7 @@ else:
                 if st.button("📋 Load Images from Project", use_container_width=True):
                     with st.spinner(f"Loading images from {selected_project}..."):
                         try:
-                            project_images = provisioner.list_images(project=selected_project, max_results=50)
+                            project_images = get_cached_gcp_project_images(gcp_project, gcp_zone, selected_project)
 
                             if project_images:
                                 st.success(f"Found {len(project_images)} images in {selected_project}")
