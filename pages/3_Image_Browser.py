@@ -3,8 +3,8 @@
 import streamlit as st
 from cloud_automation.aws.vm import AWSVMProvisioner
 from cloud_automation.gcp.vm import GCPVMProvisioner
-from cloud_automation.credential_store import CredentialStore
 from streamlit_helpers import (
+    initialize_session_state,
     get_aws_credentials,
     get_gcp_credentials,
     get_aws_region,
@@ -105,32 +105,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize credential store and load saved credentials
-if 'credential_store' not in st.session_state:
-    st.session_state.credential_store = CredentialStore()
-
-# Initialize session state for credentials - load from disk if available
-if 'aws_credentials' not in st.session_state:
-    stored_creds = st.session_state.credential_store.load_credentials()
-    if stored_creds and 'aws_credentials' in stored_creds:
-        st.session_state.aws_credentials = stored_creds['aws_credentials']
-    else:
-        st.session_state.aws_credentials = {
-            'access_key_id': '',
-            'secret_access_key': '',
-            'region': 'us-east-1'
-        }
-
-if 'gcp_credentials' not in st.session_state:
-    stored_creds = st.session_state.credential_store.load_credentials()
-    if stored_creds and 'gcp_credentials' in stored_creds:
-        st.session_state.gcp_credentials = stored_creds['gcp_credentials']
-    else:
-        st.session_state.gcp_credentials = {
-            'project_id': '',
-            'service_account_json': None,
-            'zone': 'us-central1-a'
-        }
+# Initialize session state with credentials
+initialize_session_state()
 
 # Initialize selected images in session state
 if 'selected_aws_image' not in st.session_state:

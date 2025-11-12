@@ -4,7 +4,7 @@ import streamlit as st
 import json
 import os
 from pathlib import Path
-from cloud_automation.credential_store import CredentialStore
+from streamlit_helpers import initialize_session_state
 
 # Page configuration
 st.set_page_config(
@@ -17,36 +17,12 @@ st.set_page_config(
 st.markdown('<h1 class="main-header">⚙️ Settings & Credentials</h1>', unsafe_allow_html=True)
 st.markdown("---")
 
-# Initialize credential store
-if 'credential_store' not in st.session_state:
-    st.session_state.credential_store = CredentialStore()
+# Initialize session state with credentials
+initialize_session_state()
 
 # Initialize persistence preference
 if 'persist_credentials' not in st.session_state:
     st.session_state.persist_credentials = st.session_state.credential_store.credentials_exist()
-
-# Initialize session state for credentials and load from disk if available
-if 'aws_credentials' not in st.session_state:
-    stored_creds = st.session_state.credential_store.load_credentials()
-    if stored_creds and 'aws_credentials' in stored_creds:
-        st.session_state.aws_credentials = stored_creds['aws_credentials']
-    else:
-        st.session_state.aws_credentials = {
-            'access_key_id': '',
-            'secret_access_key': '',
-            'region': 'us-east-1'
-        }
-
-if 'gcp_credentials' not in st.session_state:
-    stored_creds = st.session_state.credential_store.load_credentials()
-    if stored_creds and 'gcp_credentials' in stored_creds:
-        st.session_state.gcp_credentials = stored_creds['gcp_credentials']
-    else:
-        st.session_state.gcp_credentials = {
-            'project_id': '',
-            'service_account_json': None,
-            'zone': 'us-central1-a'
-        }
 
 # Check for existing credentials from environment
 def check_aws_env_credentials():
