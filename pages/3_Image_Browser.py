@@ -18,8 +18,8 @@ def get_cached_aws_popular_images(region: str, access_key_id: str):
     """Cached retrieval of popular AWS images."""
     provisioner = AWSVMProvisioner(
         region=region,
-        access_key_id=access_key_id,
-        secret_access_key=st.session_state.aws_credentials['secret_access_key']
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=st.session_state.aws_credentials['secret_access_key']
     )
     return provisioner.get_popular_images()
 
@@ -28,8 +28,8 @@ def get_cached_aws_search(region: str, access_key_id: str, search_term: str, own
     """Cached AWS image search results."""
     provisioner = AWSVMProvisioner(
         region=region,
-        access_key_id=access_key_id,
-        secret_access_key=st.session_state.aws_credentials['secret_access_key']
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=st.session_state.aws_credentials['secret_access_key']
     )
     return provisioner.search_images(search_term, owner=owner)
 
@@ -38,8 +38,8 @@ def get_cached_aws_my_images(region: str, access_key_id: str):
     """Cached retrieval of user's custom AMIs."""
     provisioner = AWSVMProvisioner(
         region=region,
-        access_key_id=access_key_id,
-        secret_access_key=st.session_state.aws_credentials['secret_access_key']
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=st.session_state.aws_credentials['secret_access_key']
     )
     return provisioner.list_images(owners=['self'], max_results=50)
 
@@ -48,8 +48,8 @@ def get_cached_aws_all_images(region: str, access_key_id: str, owners: list):
     """Cached retrieval of all available images."""
     provisioner = AWSVMProvisioner(
         region=region,
-        access_key_id=access_key_id,
-        secret_access_key=st.session_state.aws_credentials['secret_access_key']
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=st.session_state.aws_credentials['secret_access_key']
     )
     return provisioner.list_images(owners=owners, max_results=100)
 

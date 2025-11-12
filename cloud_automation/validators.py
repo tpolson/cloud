@@ -3,11 +3,7 @@
 import re
 from typing import Any, Optional
 from cloud_automation.instance_specs import AWS_INSTANCE_TYPES, GCP_MACHINE_TYPES
-
-
-class ValidationError(ValueError):
-    """Raised when validation fails."""
-    pass
+from cloud_automation.exceptions import ValidationError
 
 
 class AWSValidator:
