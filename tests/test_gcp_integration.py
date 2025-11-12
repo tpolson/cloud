@@ -59,21 +59,25 @@ class TestGCPVMProvisionerInitialization:
 
     def test_init_invalid_project_id(self, mock_credentials):
         """Test that invalid project IDs are rejected."""
-        with pytest.raises(ValidationError, match="Invalid GCP project ID"):
-            GCPVMProvisioner(
-                project_id='Invalid_Project!',
-                zone='us-central1-a',
-                credentials=mock_credentials
-            )
+        with patch('cloud_automation.gcp.vm.compute_v1.InstancesClient'), \
+             patch('cloud_automation.gcp.vm.compute_v1.ImagesClient'):
+            with pytest.raises(ValidationError, match="Invalid project ID"):
+                GCPVMProvisioner(
+                    project_id='Invalid_Project!',
+                    zone='us-central1-a',
+                    credentials=mock_credentials
+                )
 
     def test_init_invalid_zone(self, mock_credentials):
         """Test that invalid zones are rejected."""
-        with pytest.raises(ValidationError, match="Invalid GCP zone"):
-            GCPVMProvisioner(
-                project_id='test-project-123',
-                zone='invalid-zone',
-                credentials=mock_credentials
-            )
+        with patch('cloud_automation.gcp.vm.compute_v1.InstancesClient'), \
+             patch('cloud_automation.gcp.vm.compute_v1.ImagesClient'):
+            with pytest.raises(ValidationError, match="Invalid or uncommon GCP zone"):
+                GCPVMProvisioner(
+                    project_id='test-project-123',
+                    zone='invalid-zone',
+                    credentials=mock_credentials
+                )
 
 
 class TestGCPVMProvisionerCreation:
@@ -81,16 +85,32 @@ class TestGCPVMProvisionerCreation:
 
     def test_create_instance_basic(self, provisioner, mock_images_client):
         """Test basic instance creation."""
+        from google.cloud.compute_v1.types import Operation
+
         # Mock image response
         mock_image = Mock()
         mock_image.name = 'debian-11-bullseye-v20230101'
         mock_image.self_link = 'projects/debian-cloud/global/images/debian-11-bullseye-v20230101'
         mock_images_client.get_from_family.return_value = mock_image
 
-        # Mock insert response
+        # Mock insert response - set status to DONE so _wait_for_operation returns immediately
         mock_operation = Mock()
         mock_operation.name = 'operation-123'
+        mock_operation.status = Operation.Status.DONE
         provisioner.instances_client.insert.return_value = mock_operation
+
+        # Mock get instance response
+        mock_instance = Mock()
+        mock_instance.name = 'test-instance'
+        mock_instance.machine_type = 'zones/us-central1-a/machineTypes/e2-micro'
+        mock_instance.status = 'RUNNING'
+        mock_instance.creation_timestamp = '2023-01-01T00:00:00.000-08:00'
+        mock_instance.labels = {}
+        mock_instance.network_interfaces = [Mock()]
+        mock_instance.network_interfaces[0].network_i_p = '10.0.0.1'
+        mock_instance.network_interfaces[0].access_configs = [Mock()]
+        mock_instance.network_interfaces[0].access_configs[0].nat_i_p = '1.2.3.4'
+        provisioner.instances_client.get.return_value = mock_instance
 
         result = provisioner.create_instance(
             name='test-instance',
@@ -107,13 +127,29 @@ class TestGCPVMProvisionerCreation:
 
     def test_create_instance_with_labels(self, provisioner, mock_images_client):
         """Test instance creation with labels."""
+        from google.cloud.compute_v1.types import Operation
+
         mock_image = Mock()
         mock_image.name = 'debian-11-bullseye-v20230101'
         mock_image.self_link = 'projects/debian-cloud/global/images/debian-11-bullseye-v20230101'
         mock_images_client.get_from_family.return_value = mock_image
 
         mock_operation = Mock()
+        mock_operation.status = Operation.Status.DONE
         provisioner.instances_client.insert.return_value = mock_operation
+
+        # Mock get instance response
+        mock_instance = Mock()
+        mock_instance.name = 'labeled-instance'
+        mock_instance.machine_type = 'zones/us-central1-a/machineTypes/e2-micro'
+        mock_instance.status = 'RUNNING'
+        mock_instance.creation_timestamp = '2023-01-01T00:00:00.000-08:00'
+        mock_instance.labels = {'environment': 'test', 'project': 'cloud-automation'}
+        mock_instance.network_interfaces = [Mock()]
+        mock_instance.network_interfaces[0].network_i_p = '10.0.0.1'
+        mock_instance.network_interfaces[0].access_configs = [Mock()]
+        mock_instance.network_interfaces[0].access_configs[0].nat_i_p = '1.2.3.4'
+        provisioner.instances_client.get.return_value = mock_instance
 
         labels = {
             'environment': 'test',
@@ -131,7 +167,7 @@ class TestGCPVMProvisionerCreation:
 
     def test_create_instance_invalid_name(self, provisioner):
         """Test instance creation with invalid name."""
-        with pytest.raises(ValidationError, match="Invalid GCP instance name"):
+        with pytest.raises(ValidationError, match="Invalid instance name"):
             provisioner.create_instance(
                 name='Invalid_Name_With_Underscores',
                 machine_type='e2-micro'
@@ -207,7 +243,10 @@ class TestGCPVMProvisionerLifecycle:
 
     def test_stop_instance(self, provisioner):
         """Test stopping an instance."""
+        from google.cloud.compute_v1.types import Operation
+
         mock_operation = Mock()
+        mock_operation.status = Operation.Status.DONE
         provisioner.instances_client.stop.return_value = mock_operation
 
         provisioner.stop_instance('test-instance')
@@ -220,7 +259,10 @@ class TestGCPVMProvisionerLifecycle:
 
     def test_start_instance(self, provisioner):
         """Test starting an instance."""
+        from google.cloud.compute_v1.types import Operation
+
         mock_operation = Mock()
+        mock_operation.status = Operation.Status.DONE
         provisioner.instances_client.start.return_value = mock_operation
 
         provisioner.start_instance('test-instance')
@@ -233,7 +275,10 @@ class TestGCPVMProvisionerLifecycle:
 
     def test_reboot_instance(self, provisioner):
         """Test rebooting an instance."""
+        from google.cloud.compute_v1.types import Operation
+
         mock_operation = Mock()
+        mock_operation.status = Operation.Status.DONE
         provisioner.instances_client.reset.return_value = mock_operation
 
         provisioner.reboot_instance('test-instance')
@@ -246,7 +291,10 @@ class TestGCPVMProvisionerLifecycle:
 
     def test_delete_instance(self, provisioner):
         """Test deleting an instance."""
+        from google.cloud.compute_v1.types import Operation
+
         mock_operation = Mock()
+        mock_operation.status = Operation.Status.DONE
         provisioner.instances_client.delete.return_value = mock_operation
 
         provisioner.delete_instance('test-instance')
