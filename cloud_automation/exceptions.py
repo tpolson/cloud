@@ -1,5 +1,7 @@
 """Custom exception types for cloud automation."""
 
+from typing import Optional
+
 
 class CloudAutomationError(Exception):
     """Base exception for cloud automation errors."""
@@ -100,7 +102,7 @@ class APIError(CloudAutomationError):
 class AWSAPIError(APIError):
     """Raised when AWS API call fails."""
 
-    def __init__(self, message: str, error_code: str = None, status_code: int = None):
+    def __init__(self, message: str, error_code: Optional[str] = None, status_code: Optional[int] = None):
         """Initialize AWS API error.
 
         Args:
@@ -116,7 +118,7 @@ class AWSAPIError(APIError):
 class GCPAPIError(APIError):
     """Raised when GCP API call fails."""
 
-    def __init__(self, message: str, status_code: int = None):
+    def __init__(self, message: str, status_code: Optional[int] = None):
         """Initialize GCP API error.
 
         Args:

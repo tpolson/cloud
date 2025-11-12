@@ -1,8 +1,12 @@
 """AWS EC2 VM provisioning."""
 
 import boto3
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
 from botocore.exceptions import ClientError, BotoCoreError
+
+if TYPE_CHECKING:
+    from mypy_boto3_ec2.client import EC2Client
+    from mypy_boto3_ec2.service_resource import EC2ServiceResource
 
 from cloud_automation.utils import (
     print_success,
@@ -18,7 +22,11 @@ from cloud_automation.validators import AWSValidator, CommonValidator, Validatio
 class AWSVMProvisioner:
     """Provisions and manages AWS EC2 instances."""
 
-    def __init__(self, region: str = "us-east-1", **kwargs):
+    region: str
+    ec2_client: Any  # Would be EC2Client with mypy_boto3_ec2 installed
+    ec2_resource: Any  # Would be EC2ServiceResource with mypy_boto3_ec2 installed
+
+    def __init__(self, region: str = "us-east-1", **kwargs: Any) -> None:
         """Initialize AWS VM provisioner.
 
         Args:
@@ -43,7 +51,7 @@ class AWSVMProvisioner:
         subnet_id: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         user_data: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ) -> Dict[str, Any]:
         """Create an EC2 instance.
 

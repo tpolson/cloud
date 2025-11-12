@@ -17,7 +17,11 @@ from cloud_automation.utils import (
 class AWSStorageProvisioner:
     """Provisions and manages AWS storage (S3 and EBS)."""
 
-    def __init__(self, region: str = "us-east-1", **kwargs):
+    region: str
+    s3_client: Any
+    ec2_client: Any
+
+    def __init__(self, region: str = "us-east-1", **kwargs: Any) -> None:
         """Initialize AWS storage provisioner.
 
         Args:

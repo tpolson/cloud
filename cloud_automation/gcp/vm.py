@@ -18,7 +18,13 @@ from cloud_automation.validators import GCPValidator, CommonValidator, Validatio
 class GCPVMProvisioner:
     """Provisions and manages GCP Compute Engine instances."""
 
-    def __init__(self, project_id: str, zone: str = "us-central1-a", credentials=None):
+    project_id: str
+    zone: str
+    credentials: Optional[Any]
+    instances_client: compute_v1.InstancesClient
+    images_client: compute_v1.ImagesClient
+
+    def __init__(self, project_id: str, zone: str = "us-central1-a", credentials: Optional[Any] = None) -> None:
         """Initialize GCP VM provisioner.
 
         Args:
@@ -51,7 +57,7 @@ class GCPVMProvisioner:
         external_ip: bool = True,
         labels: Optional[Dict[str, str]] = None,
         startup_script: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ) -> Dict[str, Any]:
         """Create a GCE instance.
 
@@ -430,7 +436,7 @@ class GCPVMProvisioner:
             },
         }
 
-        results = {}
+        results: Dict[str, List[Dict[str, Any]]] = {}
         for category, info in popular_projects.items():
             results[category] = []
             for family in info['families']:

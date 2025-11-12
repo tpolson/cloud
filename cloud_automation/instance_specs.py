@@ -1,6 +1,6 @@
 """Instance type specifications for AWS and GCP."""
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 
 # AWS EC2 Instance Types with specifications
@@ -137,12 +137,12 @@ GCP_MACHINE_TYPES = {
 
 
 def filter_aws_instances(
-    min_vcpu: int = None,
-    max_vcpu: int = None,
-    min_memory_gb: float = None,
-    max_memory_gb: float = None,
-    category: str = None,
-    burstable_only: bool = None
+    min_vcpu: Optional[int] = None,
+    max_vcpu: Optional[int] = None,
+    min_memory_gb: Optional[float] = None,
+    max_memory_gb: Optional[float] = None,
+    category: Optional[str] = None,
+    burstable_only: Optional[bool] = None
 ) -> List[Dict[str, Any]]:
     """Filter AWS instance types by specifications.
 
@@ -186,11 +186,11 @@ def filter_aws_instances(
 
 
 def filter_gcp_machines(
-    min_vcpu: int = None,
-    max_vcpu: int = None,
-    min_memory_gb: float = None,
-    max_memory_gb: float = None,
-    category: str = None,
+    min_vcpu: Optional[int] = None,
+    max_vcpu: Optional[int] = None,
+    min_memory_gb: Optional[float] = None,
+    max_memory_gb: Optional[float] = None,
+    category: Optional[str] = None,
     exclude_shared_cpu: bool = False
 ) -> List[Dict[str, Any]]:
     """Filter GCP machine types by specifications.

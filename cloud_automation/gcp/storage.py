@@ -17,7 +17,13 @@ from cloud_automation.utils import (
 class GCPStorageProvisioner:
     """Provisions and manages GCP storage (Cloud Storage and Persistent Disks)."""
 
-    def __init__(self, project_id: str, zone: str = "us-central1-a", credentials=None):
+    project_id: str
+    zone: str
+    credentials: Optional[Any]
+    storage_client: storage.Client
+    disks_client: compute_v1.DisksClient
+
+    def __init__(self, project_id: str, zone: str = "us-central1-a", credentials: Optional[Any] = None) -> None:
         """Initialize GCP storage provisioner.
 
         Args:
